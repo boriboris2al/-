@@ -6,8 +6,6 @@
 <title>🍽 한맛지(한국리서치맛집지도)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Bebas+Neue&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script
   type="text/javascript"
@@ -506,23 +504,25 @@ function initMap() {
   });
 }
 
-function makeIcon(r) {
-  const stars = '★'.repeat(r.star) + '☆'.repeat(5 - r.star);
-  return L.divIcon({
-    className: 'custom-pin',
-    html: `<div class="pin-bubble">${escHtml(r.name)}<div class="pin-stars">${stars}</div></div>`,
-    iconSize: [null, null], iconAnchor: [60, 52]
-  });
-}
-
 function addMarker(r) {
 
   if (!r.lat || !r.lng) return;
 
+  const stars = '★'.repeat(r.star) + '☆'.repeat(5 - r.star);
+
   const marker = new naver.maps.Marker({
     position: new naver.maps.LatLng(r.lat, r.lng),
     map: map,
-    title: r.name
+
+    icon: {
+      content: `
+        <div class="pin-bubble">
+          ${escHtml(r.name)}
+          <div class="pin-stars">${stars}</div>
+        </div>
+      `,
+      anchor: new naver.maps.Point(60, 52)
+    }
   });
 
   naver.maps.Event.addListener(marker, 'click', () => {
@@ -713,7 +713,7 @@ if (geo) {
     delete r._rlat; delete r._rlng;
     const { error } = await supabaseClient.from('restaurants').update(toRow(r)).eq('id', r.id);
     if (error) { showToast('❌ 수정 실패: ' + error.message); btn.disabled=false; btn.textContent='✓ 수정하기'; return; }
-    removeMarker(r.id); addMarker(r);
+    removeMarker(r.id); (r);
     showToast('✓ 수정 완료!');
   } else {
     const newR = {
@@ -724,7 +724,7 @@ if (geo) {
     const { error } = await supabaseClient.from('restaurants').insert(toRow(newR));
     if (error) { showToast('❌ 등록 실패: ' + error.message); btn.disabled=false; btn.textContent='✓ 등록하기'; return; }
     restaurants.unshift(newR);
-    addMarker(newR);
+    (newR);
     showToast('✓ 등록 완료!');
   }
 
