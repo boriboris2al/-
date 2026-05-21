@@ -7,9 +7,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Bebas+Neue&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<!-- ✅ ncpKeyId 오타 수정 (ncpncpKeyId → ncpKeyId) -->
+<!-- 네이버 지도 SDK: geocoder를 document.write 없이 별도 로드 -->
 <script type="text/javascript"
-  src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=uixphb4538&submodules=geocoder">
+  src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=uixphb4538&callback=naverMapReady">
+</script>
+<script type="text/javascript"
+  src="https://oapi.map.naver.com/openapi/v3/maps-geocoder.js?ncpKeyId=uixphb4538">
 </script>
 <style>
   :root {
@@ -283,7 +286,7 @@
 </div>
 
 <header>
-  <div class="logo">🍽 MATZZIP <span>한맛지(한국리서치맛집지도)</span></div>
+  <div class="logo">🍽 HANMAZZI <span>한맛지(한국리서치맛집지도)</span></div>
   <button class="btn-register" onclick="openRegisterModal()">+ 맛집 등록</button>
 </header>
 
@@ -566,11 +569,14 @@ function rebuildMarkers() {
   restaurants.forEach(r => addMarker(r));
 }
 
-// ── GEOCODING (네이버 Maps JS SDK 내장 geocoder) ───────
-// ✅ 브라우저에서 직접 REST API 호출 시 CORS 오류 발생
-//    → submodules=geocoder 로 로드한 SDK의 Service.geocode() 사용
+// ── GEOCODING ─────────────────────────────────────────
+// geocoder JS를 별도 <script>로 로드 → document.write 차단 회피
 function geocodeAddress(address) {
   return new Promise((resolve) => {
+    // geocoder 모듈이 아직 로드 안 됐을 경우 대비
+    if (!naver.maps.Service || !naver.maps.Service.geocode) {
+      console.warn('Geocoder not ready'); resolve(null); return;
+    }
     naver.maps.Service.geocode({ query: address }, (status, response) => {
       if (status !== naver.maps.Service.Status.OK) { resolve(null); return; }
       const items = response.v2?.addresses;
@@ -810,7 +816,24 @@ function showToast(msg) {
 }
 
 // ── INIT ─────────────────────────────────────────────
-(async function init() {
+// maps.js 로드 완료 → naverMapReady() 콜백 → geocoder 로드 대기 → initApp()
+function naverMapReady() {
+  // maps-geocoder.js가 maps.js 직후 <script>로 선언됐지만
+  // 브라우저가 병렬 로드할 수 있으므로 준비될 때까지 폴링
+  const waitGeocoder = (tries) => {
+    if (naver.maps.Service && naver.maps.Service.geocode) {
+      initApp();
+    } else if (tries > 0) {
+      setTimeout(() => waitGeocoder(tries - 1), 100);
+    } else {
+      console.warn('Geocoder load timeout, continuing without it');
+      initApp();
+    }
+  };
+  waitGeocoder(30); // 최대 3초 대기
+}
+
+async function initApp() {
   try {
     initMap();
     const ok = initSupabase();
@@ -828,7 +851,7 @@ function showToast(msg) {
     loading.classList.add('hidden');
     setTimeout(() => loading.style.display = 'none', 400);
   }
-})();
+}
 </script>
 </body>
 </html>
