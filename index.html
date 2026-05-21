@@ -511,14 +511,28 @@ async function fetchAll() {
 // ── MAP (네이버) ───────────────────────────────────────
 
 function initMap() {
+  // 1. 네이버 지도 엔진이 방 크기를 오해하지 않도록 강제로 스타일을 한 번 더 먹여줍니다.
+  const mapEl = document.getElementById('map');
+  if (mapEl) {
+    // 사이드 패널 공간(340px)과 상단 헤더(56px)를 제외한 나머지 공간을 꽉 채우도록 설정
+    mapEl.style.position = 'fixed';
+    mapEl.style.top = '56px';
+    mapEl.style.left = '0';
+    mapEl.style.bottom = '0';
+    mapEl.style.right = panelVisible ? '340px' : '0';
+  }
+
+  // 2. 그 상태에서 지도를 생성합니다.
   map = new naver.maps.Map('map', {
-    center: new naver.maps.LatLng(37.507018, 127.033175),
-    zoom: 17
+    center: new naver.maps.LatLng(OFFICE.lat, OFFICE.lng),
+    zoom: 17,
     mapTypeId: naver.maps.MapTypeId.NORMAL
   });
-}
-  
-  // 회사 마커 (감싸는 wrap 태그 복구)
+
+  // 3. 지도를 만든 직후, 네이버 엔진에 "방 크기 바꿨으니까 지도 다시 제대로 채워넣어!"라고 명령합니다.
+  naver.maps.Event.trigger(map, 'resize');
+
+  // 4. 회사 마커 (감싸는 wrap 태그 복구 버전)
   new naver.maps.Marker({
     position: new naver.maps.LatLng(OFFICE.lat, OFFICE.lng),
     map: map,
@@ -534,10 +548,9 @@ function initMap() {
     },
     zIndex: 1000
   });
- // 지도 클릭 시 팝업 닫기
+
   naver.maps.Event.addListener(map, 'click', closePopup);
 }
-
 // ── MARKERS ───────────────────────────────────────────
 function addMarker(r) {
   if (!r.lat || !r.lng) return; // 좌표 없으면 스킵
