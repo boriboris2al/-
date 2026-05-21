@@ -503,15 +503,15 @@ async function fetchAll() {
 }
 
 // ── MAP (네이버) ───────────────────────────────────────
+// ── MAP ───────────────────────────────────────────────
 function initMap() {
-  // ✅ 회사 위치를 중심으로 지도 초기화
   map = new naver.maps.Map('map', {
     center: new naver.maps.LatLng(OFFICE.lat, OFFICE.lng),
     zoom: 17,
     mapTypeId: naver.maps.MapTypeId.NORMAL
   });
 
-  // ✅ 회사 마커 (파란색 핀으로 구분)
+  // 회사 마커 (감싸는 wrap 태그 복구)
   new naver.maps.Marker({
     position: new naver.maps.LatLng(OFFICE.lat, OFFICE.lng),
     map: map,
@@ -527,8 +527,7 @@ function initMap() {
     },
     zIndex: 1000
   });
-
-  // 지도 클릭 시 팝업 닫기
+ // 지도 클릭 시 팝업 닫기
   naver.maps.Event.addListener(map, 'click', closePopup);
 }
 
