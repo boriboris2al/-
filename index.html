@@ -9,6 +9,10 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script
+  type="text/javascript"
+  src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=uixphb4538">
+</script>
 <style>
   :root {
     --primary: #E8521A;
@@ -484,36 +488,22 @@ async function fetchAll() {
 // ── MAP ───────────────────────────────────────────────
 function initMap() {
 
-  // 한국리서치 본사 좌표
-  const COMPANY_LAT = 37.507524;
-  const COMPANY_LNG = 127.033175;
+  const companyPos = new naver.maps.LatLng(
+    37.507018,
+    127.033175
+  );
 
-  // 지도 생성
-  map = L.map('map', { zoomControl: true })
-    .setView([COMPANY_LAT, COMPANY_LNG], 16);
-
-  // 지도 타일
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    maxZoom: 19
-  }).addTo(map);
+  map = new naver.maps.Map('map', {
+    center: companyPos,
+    zoom: 17
+  });
 
   // 회사 마커
-  const companyMarker = L.marker([COMPANY_LAT, COMPANY_LNG])
-    .addTo(map);
-
-  // 회사 팝업
-  companyMarker.bindPopup(`
-    <div style="font-family:'Noto Sans KR',sans-serif">
-      <b>🏢 한국리서치</b><br>
-      서울특별시 강남구 봉은사로 179
-    </div>
-  `);
-
-  // 시작 시 팝업 자동 오픈
-  companyMarker.openPopup();
-
-  map.on('click', closePopup);
+  new naver.maps.Marker({
+    position: companyPos,
+    map: map,
+    title: '한국리서치'
+  });
 }
 
 function makeIcon(r) {
@@ -527,27 +517,27 @@ function makeIcon(r) {
 
 function addMarker(r) {
 
-  // 좌표 없으면 표시 안 함
-  if (!r.lat || !r.lng) {
-    console.warn('좌표 없음:', r.name);
-    return;
-  }
+  if (!r.lat || !r.lng) return;
 
-  const m = L.marker(
-    [r.lat, r.lng],
-    { icon: makeIcon(r) }
-  ).addTo(map);
+  const marker = new naver.maps.Marker({
+    position: new naver.maps.LatLng(r.lat, r.lng),
+    map: map,
+    title: r.name
+  });
 
-  m.on('click', e => {
-    L.DomEvent.stopPropagation(e);
+  naver.maps.Event.addListener(marker, 'click', () => {
     showPopup(r.id);
   });
 
-  leafletMarkers[r.id] = m;
+  leafletMarkers[r.id] = marker;
 }
   
 function removeMarker(id) {
-  if (leafletMarkers[id]) { map.removeLayer(leafletMarkers[id]); delete leafletMarkers[id]; }
+
+  if (leafletMarkers[id]) {
+    leafletMarkers[id].setMap(null);
+    delete leafletMarkers[id];
+  }
 }
 function rebuildMarkers() {
   Object.keys(leafletMarkers).forEach(id => map.removeLayer(leafletMarkers[id]));
@@ -602,7 +592,7 @@ function showPopup(id) {
   document.getElementById('popup-nick').textContent = `${r.nick} 님이 등록`;
   document.getElementById('detail-popup').classList.add('visible');
   const lat = r.lat||r._rlat||37.5073, lng = r.lng||r._rlng||127.0312;
-  map.flyTo([lat, lng], 17, { duration: 0.8 });
+  map.panTo( new naver.maps.LatLng(lat, lng));
 }
 function closePopup() {
   document.getElementById('detail-popup').classList.remove('visible');
