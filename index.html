@@ -8,7 +8,10 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Bebas+Neue&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <!-- 네이버 지도 SDK -->
-<script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=uixphb4538"></script>
+<script
+  type="text/javascript"
+  src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=uixphb4538&submodules=geocoder">
+</script>
 <style>
   :root {
     --primary: #E8521A;
@@ -808,50 +811,37 @@ function showToast(msg) {
   toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
 }
 
-// ── INIT (이 부분을 아래 코드로 교체해 주세요) ───────────────────
-window.addEventListener('DOMContentLoaded', () => {
-  // 브라우저 차단을 우회하기 위해 네이버 내장 메서드로 geocoder 모듈을 수동 로드합니다.
-  if (typeof naver !== 'undefined' && naver.maps && naver.maps.load) {
-    naver.maps.load({
-      modules: ['geocoder']
-    }, () => {
-      // 모듈 로드가 완벽히 끝나면 앱을 시작합니다.
-      initApp();
-    });
-  } else {
-    // 만약 네이버 지도 객체 자체가 아직 안 지어졌다면 잠시 후 재시도
-    setTimeout(() => {
-      if (typeof naver !== 'undefined' && naver.maps && naver.maps.load) {
-        naver.maps.load({ modules: ['geocoder'] }, initApp);
-      } else {
-        const loading = document.getElementById('loading');
-        if (loading) loading.innerHTML = '<p style="color:#E8521A;font-weight:700">⚠️ 네이버 지도를 불러오지 못했습니다.<br>새로고침 해주세요.</p>';
-      }
-    }, 300);
-  }
-});
-
-async function initApp() {
+// ── INIT  ───────────────────
+window.addEventListener('DOMContentLoaded', async () => {
   try {
     initMap();
+
     const ok = initSupabase();
+
     if (ok) {
       await fetchAll();
-      if (restaurants.length === 0) showToast('✨ 첫 맛집을 등록해보세요!');
+
+      if (restaurants.length === 0) {
+        showToast('✨ 첫 맛집을 등록해보세요!');
+      }
     } else {
       renderCards([]);
     }
-  } catch(e) {
+  } catch (e) {
     console.error('Init error:', e);
     renderCards([]);
   } finally {
     const loading = document.getElementById('loading');
+
     if (loading) {
       loading.classList.add('hidden');
-      setTimeout(() => loading.style.display = 'none', 400);
+
+      setTimeout(() => {
+        loading.style.display = 'none';
+      }, 400);
     }
   }
-}
+});
 </script>
 </body>
 </html>
