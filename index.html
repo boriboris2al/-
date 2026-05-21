@@ -58,10 +58,14 @@
   }
   .btn-register:hover { background: var(--surface2); transform: translateY(-1px); }
  #map {
-  width: 100vw;
-  height: 100vh;
-}
-  #map.full { right: 0; }
+  position: fixed;
+  top: 56px;
+  left: 0;
+  width: calc(100vw - 340px);
+  height: calc(100vh - 56px);
+  z-index: 1;
+  }
+  #map.full {   width: 100vw; }
   #side-panel {
     position: fixed;
     top: 56px; right: 0; bottom: 0; width: 340px;
@@ -836,7 +840,8 @@ window.addEventListener('DOMContentLoaded', async () => {
     const loading = document.getElementById('loading');
 
     if (loading) {
-      loading.classList.add('hidden');
+      loading.style.display = 'none';
+    }
 
       setTimeout(() => {
         loading.style.display = 'none';
