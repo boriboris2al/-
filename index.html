@@ -410,8 +410,8 @@ const SUPABASE_URL = 'https://cddcnnxhnyghueylasfv.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_bQn46kVvqUPi_EAooC0tPw_2ZKFYWMJ';
 // ══════════════════════════════════════════════════════
 
-const NAVER_MAP_CLIENT_ID = '네이버클라이언트ID';
-const NAVER_MAP_CLIENT_SECRET = '네이버시크릿';
+const NAVER_MAP_CLIENT_ID = 'uixphb4538';
+const NAVER_MAP_CLIENT_SECRET = 'sH5McQT8Nbd0ZQ7BqOX23KgK5qn8t7XhPJIeqD0f';
   
 // ── SUPABASE CLIENT ───────────────────────────────────
 let supabaseClient = null;
@@ -614,35 +614,6 @@ function openMapLink() {
   else showToast('지도 링크가 없어요');
 }
 
-  async function geocodeAddress(address) {
-
-  try {
-
-    const url =
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
-
-    const res = await fetch(url, {
-      headers: {
-        'Accept-Language': 'ko'
-      }
-    });
-
-    const data = await res.json();
-
-    if (!data || data.length === 0) {
-      return null;
-    }
-
-    return {
-      lat: parseFloat(data[0].lat),
-      lng: parseFloat(data[0].lon)
-    };
-
-  } catch (e) {
-    console.error('Geocoding error:', e);
-    return null;
-  }
-}
 
 // ── CARDS ─────────────────────────────────────────────
 function renderCards(list) {
@@ -704,8 +675,6 @@ function fillFormForEdit(r) {
   document.getElementById('input-maplink').value = r.maplink||'';
   document.getElementById('input-menu').value = r.menu;
   document.getElementById('input-note').value = r.note||'';
-  document.getElementById('input-lat').value = r.lat||'';
-  document.getElementById('input-lng').value = r.lng||'';
   setStar(r.star); currentStar = r.star;
 }
 
@@ -730,8 +699,6 @@ if (geo) {
   lng = geo.lng;
 } else {
   showToast('⚠️ 주소 위치를 찾을 수 없어요');
-  btn.disabled = false;
-  btn.textContent = isEdit ? '✓ 수정하기' : '✓ 등록하기';
   return;
 }
 
@@ -841,7 +808,7 @@ if (authAction === 'delete') {
 
   showToast('🗑 삭제되었습니다');
 }
-
+}
 
 // ── PANEL TOGGLE ──────────────────────────────────────
 function togglePanel() {
