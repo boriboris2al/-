@@ -540,8 +540,13 @@ function removeMarker(id) {
   }
 }
 function rebuildMarkers() {
-  Object.keys(leafletMarkers).forEach(id => map.removeLayer(leafletMarkers[id]));
+
+  Object.keys(leafletMarkers).forEach(id => {
+    leafletMarkers[id].setMap(null);
+  });
+
   leafletMarkers = {};
+
   restaurants.forEach(r => addMarker(r));
 }
 
@@ -817,7 +822,7 @@ function togglePanel() {
     btn.textContent = '◀'; btn.style.right = '10px'; btn.classList.add('closed');
     popup.classList.add('full-map');
   }
-  setTimeout(() => map && map.invalidateSize(), 350);
+  setTimeout(() => {}, 350);
 }
 
 // ── TOAST ────────────────────────────────────────────
