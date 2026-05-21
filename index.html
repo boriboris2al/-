@@ -57,10 +57,10 @@
     cursor: pointer; transition: all 0.2s;
   }
   .btn-register:hover { background: var(--surface2); transform: translateY(-1px); }
-  #map {
-    position: fixed;
-    top: 56px; left: 0; right: 340px; bottom: 0; z-index: 1;
-  }
+ #map {
+  width: 100vw;
+  height: 100vh;
+}
   #map.full { right: 0; }
   #side-panel {
     position: fixed;
@@ -505,13 +505,15 @@ async function fetchAll() {
 }
 
 // ── MAP (네이버) ───────────────────────────────────────
+
 function initMap() {
   map = new naver.maps.Map('map', {
-    center: new naver.maps.LatLng(OFFICE.lat, OFFICE.lng),
-    zoom: 17,
+    center: new naver.maps.LatLng(37.507018, 127.033175),
+    zoom: 17
     mapTypeId: naver.maps.MapTypeId.NORMAL
   });
-
+}
+  
   // 회사 마커 (감싸는 wrap 태그 복구)
   new naver.maps.Marker({
     position: new naver.maps.LatLng(OFFICE.lat, OFFICE.lng),
