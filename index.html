@@ -266,7 +266,7 @@
 </div>
 
 <header>
-  <div class="logo">🍽 MATZZIP <span>우리 회사 맛집 지도</span></div>
+  <div class="logo">🍽 MATZZIP <span>한맛지(한국리서치맛집지도)</span></div>
   <button class="btn-register" onclick="openRegisterModal()">+ 맛집 등록</button>
 </header>
 
@@ -488,11 +488,37 @@ async function fetchAll() {
 
 // ── MAP ───────────────────────────────────────────────
 function initMap() {
-  map = L.map('map', { zoomControl: true }).setView([37.5665, 126.9780], 14);
+
+  // 한국리서치 본사 좌표
+  const COMPANY_LAT = 37.5073;
+  const COMPANY_LNG = 127.0312;
+
+  // 지도 생성
+  map = L.map('map', { zoomControl: true })
+    .setView([COMPANY_LAT, COMPANY_LNG], 16);
+
+  // 지도 타일
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     maxZoom: 19
   }).addTo(map);
+
+  // 한국리서치 본사 마커
+  const companyMarker = L.marker([COMPANY_LAT, COMPANY_LNG])
+    .addTo(map);
+
+  // 팝업
+  companyMarker.bindPopup(`
+    <div style="font-family:'Noto Sans KR',sans-serif">
+      <b>🏢 한국리서치</b><br>
+      서울특별시 강남구 봉은사로 179
+    </div>
+  `);
+
+  // 시작하자마자 팝업 열기
+  companyMarker.openPopup();
+
+  // 지도 클릭 시 상세팝업 닫기
   map.on('click', closePopup);
 }
 
@@ -506,8 +532,8 @@ function makeIcon(r) {
 }
 
 function addMarker(r) {
-  const lat = r.lat || (37.5665 + (Math.random()-0.5)*0.02);
-  const lng = r.lng || (126.978 + (Math.random()-0.5)*0.03);
+  const lat = r.lat || (37.5073 + (Math.random()-0.5)*0.01);
+  const lng = r.lng || (127.0312 + (Math.random()-0.5)*0.01);
   if (!r.lat) { r._rlat = lat; r._rlng = lng; }
   const m = L.marker([r.lat||r._rlat, r.lng||r._rlng], { icon: makeIcon(r) }).addTo(map);
   m.on('click', e => { L.DomEvent.stopPropagation(e); showPopup(r.id); });
@@ -536,7 +562,7 @@ function showPopup(id) {
   else ns.style.display = 'none';
   document.getElementById('popup-nick').textContent = `${r.nick} 님이 등록`;
   document.getElementById('detail-popup').classList.add('visible');
-  const lat = r.lat||r._rlat||37.5665, lng = r.lng||r._rlng||126.978;
+  const lat = r.lat||r._rlat||37.5073, lng = r.lng||r._rlng||127.0312;
   map.flyTo([lat, lng], 17, { duration: 0.8 });
 }
 function closePopup() {
