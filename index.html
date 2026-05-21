@@ -410,6 +410,9 @@ const SUPABASE_URL = 'https://cddcnnxhnyghueylasfv.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_bQn46kVvqUPi_EAooC0tPw_2ZKFYWMJ';
 // ══════════════════════════════════════════════════════
 
+const NAVER_MAP_CLIENT_ID = '네이버클라이언트ID';
+const NAVER_MAP_CLIENT_SECRET = '네이버시크릿';
+  
 // ── SUPABASE CLIENT ───────────────────────────────────
 let supabaseClient = null;
 let dbReady = false;
@@ -558,6 +561,38 @@ function rebuildMarkers() {
   restaurants.forEach(r => addMarker(r));
 }
 
+async function geocodeAddress(address) {
+
+  try {
+
+    const url =
+      `https://maps.apigw.ntruss.com/map-geocode/v2/geocode?query=${encodeURIComponent(address)}`;
+
+    const res = await fetch(url, {
+      headers: {
+        'X-NCP-APIGW-API-KEY-ID': NAVER_MAP_CLIENT_ID,
+        'X-NCP-APIGW-API-KEY': NAVER_MAP_CLIENT_SECRET
+      }
+    });
+
+    const data = await res.json();
+
+    if (!data.addresses || data.addresses.length === 0) {
+      return null;
+    }
+
+    return {
+      lat: parseFloat(data.addresses[0].y),
+      lng: parseFloat(data.addresses[0].x)
+    };
+
+  } catch (e) {
+
+    console.error('Naver Geocoding Error:', e);
+    return null;
+  }
+}
+  
 // ── POPUP ─────────────────────────────────────────────
 function showPopup(id) {
   const r = restaurants.find(x => x.id === id);
