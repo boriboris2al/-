@@ -7,13 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Bebas+Neue&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<!-- 네이버 지도 SDK: geocoder를 document.write 없이 별도 로드 -->
-<script type="text/javascript"
-  src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=uixphb4538&callback=naverMapReady">
-</script>
-<script type="text/javascript"
-  src="https://oapi.map.naver.com/openapi/v3/maps-geocoder.js?ncpKeyId=uixphb4538">
-</script>
+<!-- 네이버 지도 SDK -->
+<script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=uixphb4538"></script>
+<script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps-geocoder.js?ncpKeyId=uixphb4538"></script>
 <style>
   :root {
     --primary: #E8521A;
@@ -816,22 +812,10 @@ function showToast(msg) {
 }
 
 // ── INIT ─────────────────────────────────────────────
-// maps.js 로드 완료 → naverMapReady() 콜백 → geocoder 로드 대기 → initApp()
-function naverMapReady() {
-  // maps-geocoder.js가 maps.js 직후 <script>로 선언됐지만
-  // 브라우저가 병렬 로드할 수 있으므로 준비될 때까지 폴링
-  const waitGeocoder = (tries) => {
-    if (naver.maps.Service && naver.maps.Service.geocode) {
-      initApp();
-    } else if (tries > 0) {
-      setTimeout(() => waitGeocoder(tries - 1), 100);
-    } else {
-      console.warn('Geocoder load timeout, continuing without it');
-      initApp();
-    }
-  };
-  waitGeocoder(30); // 최대 3초 대기
-}
+// 페이지와 네이버 지도 스크립트가 모두 준비되면 자동으로 실행됩니다.
+window.addEventListener('DOMContentLoaded', () => {
+  initApp();
+});
 
 async function initApp() {
   try {
