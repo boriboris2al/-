@@ -375,14 +375,6 @@
         <label class="form-label">기타 메모 <span style="font-weight:400;color:var(--text3)">(자유 형식)</span></label>
         <textarea class="form-textarea" id="input-note" placeholder="예: 12시 이후 줄 김. 현금만. 주차 가능 🅿"></textarea>
       </div>
-      <div class="form-group">
-        <label class="form-label">지도 핀 위치 <span style="font-weight:400;color:var(--text3)">(위도 / 경도 – 생략 가능)</span></label>
-        <div class="form-row">
-          <input type="number" class="form-input" id="input-lat" placeholder="위도  예: 37.5665" step="0.0001">
-          <input type="number" class="form-input" id="input-lng" placeholder="경도  예: 126.9780" step="0.0001">
-        </div>
-        <div class="form-hint">💡 생략 시 서울 중심 근처에 임의 배치됩니다</div>
-      </div>
       <button class="btn-submit" onclick="submitRestaurant()" id="submit-btn">✓ 등록하기</button>
     </div>
   </div>
@@ -414,8 +406,8 @@
 // ══════════════════════════════════════════════════════
 //  ★ 여기에 Supabase 정보를 입력하세요 ★
 // ══════════════════════════════════════════════════════
-const SUPABASE_URL      = '[https://cddcnnxhnyghueylasfv.supabase.co/](https://cddcnnxhnyghueylasfv.supabase.co/)';       // 예: [https://abcxyz.supabase.co](https://abcxyz.supabase.co/)
-const SUPABASE_ANON_KEY = 'sb_publishable_bQn46kVvqUPi_EAooC0tPw_2ZKFYWMJ';  // 예: eyJhbGci...
+const SUPABASE_URL = 'https://cddcnnxhnyghueylasfv.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_bQn46kVvqUPi_EAooC0tPw_2ZKFYWMJ';
 // ══════════════════════════════════════════════════════
 
 // ── SUPABASE CLIENT ───────────────────────────────────
@@ -503,11 +495,11 @@ function initMap() {
     maxZoom: 19
   }).addTo(map);
 
-  // 한국리서치 본사 마커
+  // 회사 마커
   const companyMarker = L.marker([COMPANY_LAT, COMPANY_LNG])
     .addTo(map);
 
-  // 팝업
+  // 회사 팝업
   companyMarker.bindPopup(`
     <div style="font-family:'Noto Sans KR',sans-serif">
       <b>🏢 한국리서치</b><br>
@@ -515,10 +507,9 @@ function initMap() {
     </div>
   `);
 
-  // 시작하자마자 팝업 열기
+  // 시작 시 팝업 자동 오픈
   companyMarker.openPopup();
 
-  // 지도 클릭 시 상세팝업 닫기
   map.on('click', closePopup);
 }
 
@@ -532,11 +523,30 @@ function makeIcon(r) {
 }
 
 function addMarker(r) {
-  const lat = r.lat || (37.5073 + (Math.random()-0.5)*0.01);
-  const lng = r.lng || (127.0312 + (Math.random()-0.5)*0.01);
-  if (!r.lat) { r._rlat = lat; r._rlng = lng; }
-  const m = L.marker([r.lat||r._rlat, r.lng||r._rlng], { icon: makeIcon(r) }).addTo(map);
-  m.on('click', e => { L.DomEvent.stopPropagation(e); showPopup(r.id); });
+
+  // 회사 근처 기본 좌표
+  const baseLat = 37.5073;
+  const baseLng = 127.0312;
+
+  // 좌표 없으면 회사 근처 랜덤 배치
+  const lat = r.lat || (baseLat + (Math.random()-0.5)*0.01);
+  const lng = r.lng || (baseLng + (Math.random()-0.5)*0.01);
+
+  if (!r.lat) {
+    r._rlat = lat;
+    r._rlng = lng;
+  }
+
+  const m = L.marker(
+    [r.lat || r._rlat, r.lng || r._rlng],
+    { icon: makeIcon(r) }
+  ).addTo(map);
+
+  m.on('click', e => {
+    L.DomEvent.stopPropagation(e);
+    showPopup(r.id);
+  });
+
   leafletMarkers[r.id] = m;
 }
 function removeMarker(id) {
@@ -573,6 +583,36 @@ function openMapLink() {
   const r = restaurants.find(x => x.id === currentPopupId);
   if (r?.maplink) window.open(r.maplink, '_blank');
   else showToast('지도 링크가 없어요');
+}
+
+  async function geocodeAddress(address) {
+
+  try {
+
+    const url =
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
+
+    const res = await fetch(url, {
+      headers: {
+        'Accept-Language': 'ko'
+      }
+    });
+
+    const data = await res.json();
+
+    if (!data || data.length === 0) {
+      return null;
+    }
+
+    return {
+      lat: parseFloat(data[0].lat),
+      lng: parseFloat(data[0].lon)
+    };
+
+  } catch (e) {
+    console.error('Geocoding error:', e);
+    return null;
+  }
 }
 
 // ── CARDS ─────────────────────────────────────────────
@@ -650,8 +690,18 @@ async function submitRestaurant() {
   const maplink = document.getElementById('input-maplink').value.trim();
   const menu    = document.getElementById('input-menu').value.trim();
   const note    = document.getElementById('input-note').value.trim();
-  const lat     = parseFloat(document.getElementById('input-lat').value) || null;
-  const lng     = parseFloat(document.getElementById('input-lng').value) || null;
+  let lat = null;
+  let lng = null;
+
+  // 주소 기반 자동 좌표 변환
+  const geo = await geocodeAddress(address);
+
+  if (geo) {
+  lat = geo.lat;
+  lng = geo.lng;
+  } else {
+    showToast('⚠️ 주소 위치를 찾지 못했어요');
+  }
 
   if (!isEdit && !nick)         { showToast('닉네임을 입력해주세요'); return; }
   if (!isEdit && pw.length < 4) { showToast('비밀번호는 4자 이상이에요'); return; }
