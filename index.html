@@ -414,12 +414,12 @@
 // ══════════════════════════════════════════════════════
 //  ★ 여기에 Supabase 정보를 입력하세요 ★
 // ══════════════════════════════════════════════════════
-const SUPABASE_URL      = 'https://cddcnnxhnyghueylasfv.supabase.co/';       // 예: https://abcxyz.supabase.co
+const SUPABASE_URL      = '[https://cddcnnxhnyghueylasfv.supabase.co/](https://cddcnnxhnyghueylasfv.supabase.co/)';       // 예: [https://abcxyz.supabase.co](https://abcxyz.supabase.co/)
 const SUPABASE_ANON_KEY = 'sb_publishable_bQn46kVvqUPi_EAooC0tPw_2ZKFYWMJ';  // 예: eyJhbGci...
 // ══════════════════════════════════════════════════════
 
 // ── SUPABASE CLIENT ───────────────────────────────────
-let supabase = null;
+let supabaseClient = null;
 let dbReady = false;
 
 function initSupabase() {
@@ -428,7 +428,7 @@ function initSupabase() {
     return false;
   }
   const { createClient } = window.supabase;
-  supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   dbReady = true;
   return true;
 }
@@ -473,12 +473,17 @@ function toRow(r) {
 
 async function fetchAll() {
   if (!dbReady) return;
-  const { data, error } = await supabase
-    .from('restaurants').select('*').order('created_at', { ascending: false });
-  if (error) { showToast('❌ 데이터 로드 오류: ' + error.message); return; }
-  restaurants = (data || []).map(fromRow);
-  rebuildMarkers();
-  renderCards(restaurants);
+  try {
+    const { data, error } = await supabaseClient
+      .from('restaurants').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    restaurants = (data || []).map(fromRow);
+    rebuildMarkers();
+    renderCards(restaurants);
+  } catch(e) {
+    showToast('❌ 데이터 로드 오류: ' + (e.message || e));
+    renderCards([]);
+  }
 }
 
 // ── MAP ───────────────────────────────────────────────
@@ -636,7 +641,7 @@ async function submitRestaurant() {
     const r = restaurants.find(x=>x.id===editingId);
     Object.assign(r, { name, address, maplink, menu, note, star: currentStar, lat, lng });
     delete r._rlat; delete r._rlng;
-    const { error } = await supabase.from('restaurants').update(toRow(r)).eq('id', r.id);
+    const { error } = await supabaseClient.from('restaurants').update(toRow(r)).eq('id', r.id);
     if (error) { showToast('❌ 수정 실패: ' + error.message); btn.disabled=false; btn.textContent='✓ 수정하기'; return; }
     removeMarker(r.id); addMarker(r);
     showToast('✓ 수정 완료!');
@@ -646,7 +651,7 @@ async function submitRestaurant() {
       name, address, maplink, menu, note, star: currentStar,
       lat, lng, createdAt: Date.now()
     };
-    const { error } = await supabase.from('restaurants').insert(toRow(newR));
+    const { error } = await supabaseClient.from('restaurants').insert(toRow(newR));
     if (error) { showToast('❌ 등록 실패: ' + error.message); btn.disabled=false; btn.textContent='✓ 등록하기'; return; }
     restaurants.unshift(newR);
     addMarker(newR);
@@ -697,7 +702,7 @@ async function confirmAuth() {
     closePopup();
     document.getElementById('register-modal').classList.add('visible');
   } else {
-    const { error } = await supabase.from('restaurants').delete().eq('id', currentPopupId);
+    const { error } = await supabaseClient.from('restaurants').delete().eq('id', currentPopupId);
     if (error) { showToast('❌ 삭제 실패: ' + error.message); return; }
     removeMarker(currentPopupId);
     restaurants = restaurants.filter(x=>x.id!==currentPopupId);
@@ -738,17 +743,23 @@ function showToast(msg) {
 
 // ── INIT ─────────────────────────────────────────────
 (async function init() {
-  initMap();
-  const ok = initSupabase();
-  if (ok) {
-    await fetchAll();
-    if (restaurants.length === 0) showToast('✨ 첫 맛집을 등록해보세요!');
-  } else {
+  try {
+    initMap();
+    const ok = initSupabase();
+    if (ok) {
+      await fetchAll();
+      if (restaurants.length === 0) showToast('✨ 첫 맛집을 등록해보세요!');
+    } else {
+      renderCards([]);
+    }
+  } catch(e) {
+    console.error('Init error:', e);
     renderCards([]);
+  } finally {
+    const loading = document.getElementById('loading');
+    loading.classList.add('hidden');
+    setTimeout(() => loading.style.display = 'none', 400);
   }
-  const loading = document.getElementById('loading');
-  loading.classList.add('hidden');
-  setTimeout(() => loading.style.display = 'none', 400);
 })();
 </script>
 </body>
