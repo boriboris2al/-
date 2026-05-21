@@ -527,21 +527,14 @@ function makeIcon(r) {
 
 function addMarker(r) {
 
-  // 회사 근처 기본 좌표
-  const baseLat = 37.507524;
-  const baseLng = 127.033175;
-
-  // 좌표 없으면 회사 근처 랜덤 배치
-  const lat = r.lat || (baseLat + (Math.random()-0.5)*0.01);
-  const lng = r.lng || (baseLng + (Math.random()-0.5)*0.01);
-
-  if (!r.lat) {
-    r._rlat = lat;
-    r._rlng = lng;
+  // 좌표 없으면 표시 안 함
+  if (!r.lat || !r.lng) {
+    console.warn('좌표 없음:', r.name);
+    return;
   }
 
   const m = L.marker(
-    [r.lat || r._rlat, r.lng || r._rlng],
+    [r.lat, r.lng],
     { icon: makeIcon(r) }
   ).addTo(map);
 
@@ -552,6 +545,7 @@ function addMarker(r) {
 
   leafletMarkers[r.id] = m;
 }
+  
 function removeMarker(id) {
   if (leafletMarkers[id]) { map.removeLayer(leafletMarkers[id]); delete leafletMarkers[id]; }
 }
@@ -731,12 +725,15 @@ async function submitRestaurant() {
   // 주소 기반 자동 좌표 변환
   const geo = await geocodeAddress(address);
 
-  if (geo) {
+if (geo) {
   lat = geo.lat;
   lng = geo.lng;
-  } else {
-    showToast('⚠️ 주소 위치를 찾지 못했어요');
-  }
+} else {
+  showToast('⚠️ 주소 위치를 찾을 수 없어요');
+  btn.disabled = false;
+  btn.textContent = isEdit ? '✓ 수정하기' : '✓ 등록하기';
+  return;
+}
 
   if (!isEdit && !nick)         { showToast('닉네임을 입력해주세요'); return; }
   if (!isEdit && pw.length < 4) { showToast('비밀번호는 4자 이상이에요'); return; }
@@ -803,25 +800,48 @@ async function confirmAuth() {
   if (hashPw(pw) !== r.pwHash) { showToast('❌ 비밀번호가 틀렸어요'); return; }
   closeAuthModal();
 
-  if (authAction === 'edit') {
-    editingId = currentPopupId;
-    document.getElementById('modal-title').textContent = '✏️ 맛집 수정';
-    document.getElementById('submit-btn').textContent = '✓ 수정하기';
-    document.getElementById('nick-pw-row').style.display = 'none';
-    document.getElementById('nick-only-row').style.display = '';
-    fillFormForEdit(r);
-    closePopup();
-    document.getElementById('register-modal').classList.add('visible');
-  } else {
-    const { error } = await supabaseClient.from('restaurants').delete().eq('id', currentPopupId);
-    if (error) { showToast('❌ 삭제 실패: ' + error.message); return; }
-    removeMarker(currentPopupId);
-    restaurants = restaurants.filter(x=>x.id!==currentPopupId);
-    renderCards(restaurants);
-    closePopup();
-    showToast('🗑 삭제되었습니다');
-  }
+ if (authAction === 'edit') {
+
+  editingId = currentPopupId;
+
+  document.getElementById('modal-title').textContent = '✏️ 맛집 수정';
+  document.getElementById('submit-btn').textContent = '✓ 수정하기';
+
+  document.getElementById('nick-pw-row').style.display = 'none';
+  document.getElementById('nick-only-row').style.display = '';
+
+  fillFormForEdit(r);
+
+  closePopup();
+
+  document.getElementById('register-modal').classList.add('visible');
+
+  return;
 }
+
+if (authAction === 'delete') {
+
+  const { error } = await supabaseClient
+    .from('restaurants')
+    .delete()
+    .eq('id', currentPopupId);
+
+  if (error) {
+    showToast('❌ 삭제 실패: ' + error.message);
+    return;
+  }
+
+  removeMarker(currentPopupId);
+
+  restaurants = restaurants.filter(x => x.id !== currentPopupId);
+
+  renderCards(restaurants);
+
+  closePopup();
+
+  showToast('🗑 삭제되었습니다');
+}
+
 
 // ── PANEL TOGGLE ──────────────────────────────────────
 function togglePanel() {
