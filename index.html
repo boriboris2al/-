@@ -7,9 +7,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Bebas+Neue&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script
-  type="text/javascript"
-  src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpncpKeyId=uixphb4538">
+<!-- ✅ ncpKeyId 오타 수정 (ncpncpKeyId → ncpKeyId) -->
+<script type="text/javascript"
+  src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=uixphb4538&submodules=geocoder">
 </script>
 <style>
   :root {
@@ -199,14 +199,15 @@
     transition: transform 0.3s; white-space: nowrap; pointer-events: none;
   }
   #toast.show { transform: translateX(-50%) translateY(0); }
-  .custom-pin { cursor: pointer; }
+
+  /* 네이버 맛집 마커 핀 */
   .pin-bubble {
     background: var(--primary); color: #fff;
     border-radius: 100px; padding: 5px 11px;
     font-size: 12px; font-weight: 700; white-space: nowrap;
     box-shadow: 0 3px 10px rgba(232,82,26,0.5);
     border: 2px solid #fff; font-family: 'Noto Sans KR', sans-serif;
-    position: relative; display: inline-block;
+    position: relative; display: inline-block; cursor: pointer;
   }
   .pin-bubble::after {
     content: ''; position: absolute;
@@ -214,6 +215,26 @@
     border: 8px solid transparent; border-top: 8px solid var(--primary); border-bottom: none;
   }
   .pin-stars { font-size: 10px; margin-top: 1px; opacity: 0.9; }
+
+  /* 회사 마커 핀 */
+  .office-pin-wrap {
+    display: flex; flex-direction: column; align-items: center;
+  }
+  .office-pin-bubble {
+    background: #1A237E; color: #fff;
+    border-radius: 100px; padding: 6px 14px;
+    font-size: 12px; font-weight: 700; white-space: nowrap;
+    box-shadow: 0 3px 14px rgba(26,35,126,0.45);
+    border: 2px solid #fff; font-family: 'Noto Sans KR', sans-serif;
+    position: relative; display: inline-block;
+  }
+  .office-pin-bubble::after {
+    content: ''; position: absolute;
+    bottom: -8px; left: 50%; transform: translateX(-50%);
+    border: 8px solid transparent; border-top: 8px solid #1A237E; border-bottom: none;
+  }
+  .office-pin-sub { font-size: 10px; opacity: 0.85; margin-top: 2px; }
+
   .empty-state { text-align: center; padding: 40px 20px; color: var(--text3); }
   .empty-icon { font-size: 40px; margin-bottom: 12px; }
   .empty-text { font-size: 13px; line-height: 1.8; }
@@ -223,7 +244,6 @@
     padding: 8px 14px; font-size: 12px; color: var(--text2);
     box-shadow: var(--shadow); pointer-events: none;
   }
-  /* Loading overlay */
   #loading {
     position: fixed; inset: 0; z-index: 9000;
     background: var(--surface);
@@ -240,8 +260,6 @@
   }
   @keyframes spin { to { transform: rotate(360deg); } }
   #loading p { font-size: 14px; color: var(--text3); }
-
-  /* DB 설정 안내 배너 */
   #config-banner {
     position: fixed; top: 56px; left: 0; right: 0; z-index: 900;
     background: #FFF3CD; border-bottom: 1px solid #F59E0B;
@@ -249,19 +267,16 @@
     display: none; align-items: center; gap: 10px;
   }
   #config-banner.show { display: flex; }
-  #config-banner strong { font-weight: 700; }
   #config-banner a { color: var(--primary); font-weight: 700; }
 </style>
 </head>
 <body>
 
-<!-- Loading -->
 <div id="loading">
   <div class="spinner"></div>
   <p>맛집 정보를 불러오는 중...</p>
 </div>
 
-<!-- Config Banner (Supabase 미설정 시) -->
 <div id="config-banner">
   ⚠️ <strong>Supabase 연결 필요:</strong> 파일 상단의 <code>SUPABASE_URL</code>과 <code>SUPABASE_ANON_KEY</code>를 입력해주세요.
   &nbsp;<a href="https://supabase.com" target="_blank">supabase.com →</a>
@@ -361,8 +376,9 @@
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">주소 *</label>
-        <input type="text" class="form-input" id="input-address" placeholder="예: 서울시 중구 명동길 12">
+        <label class="form-label">주소 * <span style="font-weight:400;color:var(--text3)">(도로명 주소 권장)</span></label>
+        <input type="text" class="form-input" id="input-address" placeholder="예: 서울특별시 강남구 봉은사로 179">
+        <div class="form-hint">💡 입력하면 자동으로 지도 위치를 찾습니다</div>
       </div>
       <div class="form-group">
         <label class="form-label">지도 링크 <span style="font-weight:400;color:var(--text3)">(네이버/카카오맵 공유 링크)</span></label>
@@ -406,16 +422,21 @@
 
 <script>
 // ══════════════════════════════════════════════════════
-//  ★ 여기에 Supabase 정보를 입력하세요 ★
+//  ★ Supabase 정보
 // ══════════════════════════════════════════════════════
-const SUPABASE_URL = 'https://cddcnnxhnyghueylasfv.supabase.co';
+const SUPABASE_URL      = 'https://cddcnnxhnyghueylasfv.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_bQn46kVvqUPi_EAooC0tPw_2ZKFYWMJ';
 // ══════════════════════════════════════════════════════
 
-const NAVER_MAP_CLIENT_ID = 'uixphb4538';
-const NAVER_MAP_CLIENT_SECRET = 'sH5McQT8Nbd0ZQ7BqOX23KgK5qn8t7XhPJIeqD0f';
-  
-// ── SUPABASE CLIENT ───────────────────────────────────
+// ── 회사 위치 (한국리서치) ─────────────────────────────
+const OFFICE = {
+  name: '🏢 한국리서치',
+  address: '서울특별시 강남구 봉은사로 179',
+  lat: 37.507018,
+  lng: 127.033175
+};
+
+// ── SUPABASE ──────────────────────────────────────────
 let supabaseClient = null;
 let dbReady = false;
 
@@ -430,14 +451,15 @@ function initSupabase() {
   return true;
 }
 
-// ── DATA ─────────────────────────────────────────────
+// ── DATA ──────────────────────────────────────────────
 let restaurants = [];
 let editingId = null;
 let authAction = null;
 let currentStar = 0;
 let currentPopupId = null;
 let panelVisible = true;
-let map, leafletMarkers = {};
+let map;
+let naverMarkers = {}; // ✅ leafletMarkers → naverMarkers 로 이름 정리
 
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function hashPw(pw) {
@@ -449,7 +471,6 @@ function escHtml(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-// DB row → JS object
 function fromRow(row) {
   return {
     id: row.id, nick: row.nick, pwHash: row.pw_hash,
@@ -458,7 +479,6 @@ function fromRow(row) {
     lat: row.lat, lng: row.lng, createdAt: row.created_at
   };
 }
-// JS object → DB row
 function toRow(r) {
   return {
     id: r.id, nick: r.nick, pw_hash: r.pwHash,
@@ -483,105 +503,86 @@ async function fetchAll() {
   }
 }
 
-// ── MAP ───────────────────────────────────────────────
+// ── MAP (네이버) ───────────────────────────────────────
 function initMap() {
-
-  const companyPos = new naver.maps.LatLng(
-    37.507018,
-    127.033175
-  );
-
+  // ✅ 회사 위치를 중심으로 지도 초기화
   map = new naver.maps.Map('map', {
-    center: companyPos,
-    zoom: 17
+    center: new naver.maps.LatLng(OFFICE.lat, OFFICE.lng),
+    zoom: 17,
+    mapTypeId: naver.maps.MapTypeId.NORMAL
   });
 
-  // 회사 마커
+  // ✅ 회사 마커 (파란색 핀으로 구분)
   new naver.maps.Marker({
-    position: companyPos,
+    position: new naver.maps.LatLng(OFFICE.lat, OFFICE.lng),
     map: map,
-    title: '한국리서치'
+    icon: {
+      content: `
+        <div class="office-pin-wrap">
+          <div class="office-pin-bubble">
+            🏢 ${OFFICE.name}
+            <div class="office-pin-sub">${OFFICE.address}</div>
+          </div>
+        </div>`,
+      anchor: new naver.maps.Point(80, 48)
+    },
+    zIndex: 1000
   });
+
+  // 지도 클릭 시 팝업 닫기
+  naver.maps.Event.addListener(map, 'click', closePopup);
 }
 
+// ── MARKERS ───────────────────────────────────────────
 function addMarker(r) {
-
-  if (!r.lat || !r.lng) return;
-
+  if (!r.lat || !r.lng) return; // 좌표 없으면 스킵
   const stars = '★'.repeat(r.star) + '☆'.repeat(5 - r.star);
-
   const marker = new naver.maps.Marker({
     position: new naver.maps.LatLng(r.lat, r.lng),
     map: map,
-
     icon: {
       content: `
         <div class="pin-bubble">
           ${escHtml(r.name)}
           <div class="pin-stars">${stars}</div>
-        </div>
-      `,
-      anchor: new naver.maps.Point(60, 52)
+        </div>`,
+      anchor: new naver.maps.Point(60, 48)
     }
   });
-
-  naver.maps.Event.addListener(marker, 'click', () => {
-    showPopup(r.id);
-  });
-
-  leafletMarkers[r.id] = marker;
+  naver.maps.Event.addListener(marker, 'click', () => showPopup(r.id));
+  naverMarkers[r.id] = marker;
 }
-  
-function removeMarker(id) {
 
-  if (leafletMarkers[id]) {
-    leafletMarkers[id].setMap(null);
-    delete leafletMarkers[id];
+function removeMarker(id) {
+  if (naverMarkers[id]) {
+    naverMarkers[id].setMap(null);
+    delete naverMarkers[id];
   }
 }
+
 function rebuildMarkers() {
-
-  Object.keys(leafletMarkers).forEach(id => {
-    leafletMarkers[id].setMap(null);
-  });
-
-  leafletMarkers = {};
-
+  Object.keys(naverMarkers).forEach(id => naverMarkers[id].setMap(null));
+  naverMarkers = {};
   restaurants.forEach(r => addMarker(r));
 }
 
-async function geocodeAddress(address) {
-
-  try {
-
-    const url =
-      `https://maps.apigw.ntruss.com/map-geocode/v2/geocode?query=${encodeURIComponent(address)}`;
-
-    const res = await fetch(url, {
-      headers: {
-        'X-NCP-APIGW-API-KEY-ID': NAVER_MAP_CLIENT_ID,
-        'X-NCP-APIGW-API-KEY': NAVER_MAP_CLIENT_SECRET
-      }
+// ── GEOCODING (네이버 Maps JS SDK 내장 geocoder) ───────
+// ✅ 브라우저에서 직접 REST API 호출 시 CORS 오류 발생
+//    → submodules=geocoder 로 로드한 SDK의 Service.geocode() 사용
+function geocodeAddress(address) {
+  return new Promise((resolve) => {
+    naver.maps.Service.geocode({ query: address }, (status, response) => {
+      if (status !== naver.maps.Service.Status.OK) { resolve(null); return; }
+      const items = response.v2?.addresses;
+      if (!items || items.length === 0) { resolve(null); return; }
+      resolve({
+        lat: parseFloat(items[0].y),
+        lng: parseFloat(items[0].x)
+      });
     });
-
-    const data = await res.json();
-
-    if (!data.addresses || data.addresses.length === 0) {
-      return null;
-    }
-
-    return {
-      lat: parseFloat(data.addresses[0].y),
-      lng: parseFloat(data.addresses[0].x)
-    };
-
-  } catch (e) {
-
-    console.error('Naver Geocoding Error:', e);
-    return null;
-  }
+  });
 }
-  
+
 // ── POPUP ─────────────────────────────────────────────
 function showPopup(id) {
   const r = restaurants.find(x => x.id === id);
@@ -596,8 +597,7 @@ function showPopup(id) {
   else ns.style.display = 'none';
   document.getElementById('popup-nick').textContent = `${r.nick} 님이 등록`;
   document.getElementById('detail-popup').classList.add('visible');
-  const lat = r.lat||r._rlat||37.5073, lng = r.lng||r._rlng||127.0312;
-  map.panTo( new naver.maps.LatLng(lat, lng));
+  if (r.lat && r.lng) map.panTo(new naver.maps.LatLng(r.lat, r.lng));
 }
 function closePopup() {
   document.getElementById('detail-popup').classList.remove('visible');
@@ -608,7 +608,6 @@ function openMapLink() {
   if (r?.maplink) window.open(r.maplink, '_blank');
   else showToast('지도 링크가 없어요');
 }
-
 
 // ── CARDS ─────────────────────────────────────────────
 function renderCards(list) {
@@ -659,7 +658,7 @@ function closeRegisterModal() {
   document.getElementById('register-modal').classList.remove('visible');
 }
 function clearForm() {
-  ['input-nick','input-pw','input-name','input-address','input-maplink','input-menu','input-note','input-lat','input-lng']
+  ['input-nick','input-pw','input-name','input-address','input-maplink','input-menu','input-note']
     .forEach(id => { const e = document.getElementById(id); if(e) e.value=''; });
   setStar(0); currentStar = 0;
 }
@@ -675,7 +674,7 @@ function fillFormForEdit(r) {
 
 async function submitRestaurant() {
   if (!dbReady) { showToast('⚠️ Supabase 연결을 먼저 설정해주세요'); return; }
-  const isEdit = !!editingId;
+  const isEdit  = !!editingId;
   const nick    = isEdit ? restaurants.find(x=>x.id===editingId).nick : document.getElementById('input-nick').value.trim();
   const pw      = isEdit ? null : document.getElementById('input-pw').value.trim();
   const name    = document.getElementById('input-name').value.trim();
@@ -683,20 +682,8 @@ async function submitRestaurant() {
   const maplink = document.getElementById('input-maplink').value.trim();
   const menu    = document.getElementById('input-menu').value.trim();
   const note    = document.getElementById('input-note').value.trim();
-  let lat = null;
-  let lng = null;
 
-  // 주소 기반 자동 좌표 변환
-  const geo = await geocodeAddress(address);
-
-if (geo) {
-  lat = geo.lat;
-  lng = geo.lng;
-} else {
-  showToast('⚠️ 주소 위치를 찾을 수 없어요');
-  return;
-}
-
+  // ✅ 유효성 검사를 먼저 (geocode 전에)
   if (!isEdit && !nick)         { showToast('닉네임을 입력해주세요'); return; }
   if (!isEdit && pw.length < 4) { showToast('비밀번호는 4자 이상이에요'); return; }
   if (!name)                    { showToast('가게 이름을 입력해주세요'); return; }
@@ -705,26 +692,36 @@ if (geo) {
   if (!menu)                    { showToast('추천 메뉴를 입력해주세요'); return; }
 
   const btn = document.getElementById('submit-btn');
-  btn.disabled = true; btn.textContent = '저장 중...';
+  btn.disabled = true; btn.textContent = '위치 확인 중...';
+
+  // ✅ SDK 내장 geocoder 사용 (CORS 없음)
+  const geo = await geocodeAddress(address);
+  if (!geo) {
+    showToast('⚠️ 주소 위치를 찾을 수 없어요. 도로명 주소로 다시 입력해보세요.');
+    btn.disabled = false; btn.textContent = isEdit ? '✓ 수정하기' : '✓ 등록하기';
+    return;
+  }
+
+  btn.textContent = '저장 중...';
 
   if (isEdit) {
     const r = restaurants.find(x=>x.id===editingId);
-    Object.assign(r, { name, address, maplink, menu, note, star: currentStar, lat, lng });
-    delete r._rlat; delete r._rlng;
+    Object.assign(r, { name, address, maplink, menu, note, star: currentStar, lat: geo.lat, lng: geo.lng });
     const { error } = await supabaseClient.from('restaurants').update(toRow(r)).eq('id', r.id);
     if (error) { showToast('❌ 수정 실패: ' + error.message); btn.disabled=false; btn.textContent='✓ 수정하기'; return; }
-    removeMarker(r.id); (r);
+    removeMarker(r.id);
+    addMarker(r); // ✅ 수정 후 마커 다시 추가
     showToast('✓ 수정 완료!');
   } else {
     const newR = {
       id: genId(), nick, pwHash: hashPw(pw),
       name, address, maplink, menu, note, star: currentStar,
-      lat, lng, createdAt: Date.now()
+      lat: geo.lat, lng: geo.lng, createdAt: Date.now()
     };
     const { error } = await supabaseClient.from('restaurants').insert(toRow(newR));
     if (error) { showToast('❌ 등록 실패: ' + error.message); btn.disabled=false; btn.textContent='✓ 등록하기'; return; }
     restaurants.unshift(newR);
-    (newR);
+    addMarker(newR); // ✅ 등록 후 마커 추가
     showToast('✓ 등록 완료!');
   }
 
@@ -762,67 +759,45 @@ async function confirmAuth() {
   if (hashPw(pw) !== r.pwHash) { showToast('❌ 비밀번호가 틀렸어요'); return; }
   closeAuthModal();
 
- if (authAction === 'edit') {
-
-  editingId = currentPopupId;
-
-  document.getElementById('modal-title').textContent = '✏️ 맛집 수정';
-  document.getElementById('submit-btn').textContent = '✓ 수정하기';
-
-  document.getElementById('nick-pw-row').style.display = 'none';
-  document.getElementById('nick-only-row').style.display = '';
-
-  fillFormForEdit(r);
-
-  closePopup();
-
-  document.getElementById('register-modal').classList.add('visible');
-
-  return;
-}
-
-if (authAction === 'delete') {
-
-  const { error } = await supabaseClient
-    .from('restaurants')
-    .delete()
-    .eq('id', currentPopupId);
-
-  if (error) {
-    showToast('❌ 삭제 실패: ' + error.message);
+  if (authAction === 'edit') {
+    editingId = currentPopupId;
+    document.getElementById('modal-title').textContent = '✏️ 맛집 수정';
+    document.getElementById('submit-btn').textContent = '✓ 수정하기';
+    document.getElementById('nick-pw-row').style.display = 'none';
+    document.getElementById('nick-only-row').style.display = '';
+    fillFormForEdit(r);
+    closePopup();
+    document.getElementById('register-modal').classList.add('visible');
     return;
   }
 
-  removeMarker(currentPopupId);
-
-  restaurants = restaurants.filter(x => x.id !== currentPopupId);
-
-  renderCards(restaurants);
-
-  closePopup();
-
-  showToast('🗑 삭제되었습니다');
-}
+  if (authAction === 'delete') {
+    const { error } = await supabaseClient.from('restaurants').delete().eq('id', currentPopupId);
+    if (error) { showToast('❌ 삭제 실패: ' + error.message); return; }
+    removeMarker(currentPopupId);
+    restaurants = restaurants.filter(x => x.id !== currentPopupId);
+    renderCards(restaurants);
+    closePopup();
+    showToast('🗑 삭제되었습니다');
+  }
 }
 
 // ── PANEL TOGGLE ──────────────────────────────────────
 function togglePanel() {
   panelVisible = !panelVisible;
-  const mapEl = document.getElementById('map');
-  const btn   = document.getElementById('toggle-panel');
+  const btn = document.getElementById('toggle-panel');
   const popup = document.getElementById('detail-popup');
   if (panelVisible) {
     document.getElementById('side-panel').classList.remove('hidden');
-    mapEl.classList.remove('full');
+    document.getElementById('map').classList.remove('full');
     btn.textContent = '▶'; btn.style.right = '350px'; btn.classList.remove('closed');
     popup.classList.remove('full-map');
   } else {
     document.getElementById('side-panel').classList.add('hidden');
-    mapEl.classList.add('full');
+    document.getElementById('map').classList.add('full');
     btn.textContent = '◀'; btn.style.right = '10px'; btn.classList.add('closed');
     popup.classList.add('full-map');
   }
-  setTimeout(() => {}, 350);
 }
 
 // ── TOAST ────────────────────────────────────────────
@@ -831,7 +806,7 @@ function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg; t.classList.add('show');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
 }
 
 // ── INIT ─────────────────────────────────────────────
