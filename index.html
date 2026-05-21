@@ -485,8 +485,8 @@ async function fetchAll() {
 function initMap() {
 
   // 한국리서치 본사 좌표
-  const COMPANY_LAT = 37.506918;
-  const COMPANY_LNG = 127.031430;
+  const COMPANY_LAT = 37.507018;
+  const COMPANY_LNG = 127.033175;
 
   // 지도 생성
   map = L.map('map', { zoomControl: true })
@@ -528,8 +528,8 @@ function makeIcon(r) {
 function addMarker(r) {
 
   // 회사 근처 기본 좌표
-  const baseLat = 37.506918;
-  const baseLng = 127.031430;
+  const baseLat = 37.507018;
+  const baseLng = 127.033175;
 
   // 좌표 없으면 회사 근처 랜덤 배치
   const lat = r.lat || (baseLat + (Math.random()-0.5)*0.01);
