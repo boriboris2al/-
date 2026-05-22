@@ -435,10 +435,8 @@ const SUPABASE_ANON_KEY = 'sb_publishable_bQn46kVvqUPi_EAooC0tPw_2ZKFYWMJ';
 
 // ── 회사 위치 (한국리서치) ─────────────────────────────
 const OFFICE = {
-  name: '한국리서치',
-  address: '서울특별시 강남구 봉은사로 179',
-  lat: 37.507018,
-  lng: 127.033175
+  name: ' 한국리서치',
+  address: '서울특별시 강남구 봉은사로 179'
 };
 
 // ── SUPABASE ──────────────────────────────────────────
@@ -510,11 +508,11 @@ async function fetchAll() {
 
 // ── MAP (네이버) ───────────────────────────────────────
 
-function initMap() {
-  // 1. 네이버 지도 엔진이 방 크기를 오해하지 않도록 강제로 스타일을 한 번 더 먹여줍니다.
+async function initMap() {
+
   const mapEl = document.getElementById('map');
+
   if (mapEl) {
-    // 사이드 패널 공간(340px)과 상단 헤더(56px)를 제외한 나머지 공간을 꽉 채우도록 설정
     mapEl.style.position = 'fixed';
     mapEl.style.top = '56px';
     mapEl.style.left = '0';
@@ -522,19 +520,26 @@ function initMap() {
     mapEl.style.right = panelVisible ? '340px' : '0';
   }
 
-  // 2. 그 상태에서 지도를 생성합니다.
+  // 회사 주소를 네이버 geocoder로 변환
+  const officeGeo = await geocodeAddress(OFFICE.address);
+
+  // 실패 시 대비 fallback
+  const lat = officeGeo?.lat || 37.507018;
+  const lng = officeGeo?.lng || 127.033175;
+
   map = new naver.maps.Map('map', {
-    center: new naver.maps.LatLng(OFFICE.lat, OFFICE.lng),
+    center: new naver.maps.LatLng(lat, lng),
     zoom: 17,
     mapTypeId: naver.maps.MapTypeId.NORMAL
   });
 
-  // 3. 지도를 만든 직후, 네이버 엔진에 "방 크기 바꿨으니까 지도 다시 제대로 채워넣어!"라고 명령합니다.
-  naver.maps.Event.trigger(map, 'resize');
+  setTimeout(() => {
+    naver.maps.Event.trigger(map, 'resize');
+  }, 300);
 
-  // 4. 회사 마커 (감싸는 wrap 태그 복구 버전)
+  // 회사 마커
   new naver.maps.Marker({
-    position: new naver.maps.LatLng(OFFICE.lat, OFFICE.lng),
+    position: new naver.maps.LatLng(lat, lng),
     map: map,
     icon: {
       content: `
@@ -551,6 +556,7 @@ function initMap() {
 
   naver.maps.Event.addListener(map, 'click', closePopup);
 }
+  
 // ── MARKERS ───────────────────────────────────────────
 function addMarker(r) {
   if (!r.lat || !r.lng) return; // 좌표 없으면 스킵
@@ -846,7 +852,7 @@ function showToast(msg) {
 // ── INIT  ───────────────────
 window.addEventListener('DOMContentLoaded', async () => {
   try {
-    initMap();
+   await initMap();
 
     const ok = initSupabase();
 
