@@ -358,7 +358,7 @@
         </div>
         <div class="form-group">
           <label class="form-label">비밀번호 * <span style="font-weight:400;color:var(--text3)">(수정/삭제용)</span></label>
-          <input type="password" class="form-input" id="input-pw" placeholder="4자 이상" maxlength="20">
+          <input type="password" class="form-input" id="input-pw" placeholder="숫자 4자리" maxlength="4" inputmode="numeric" pattern="[0-9]*">
         </div>
       </div>
       <div class="form-group" id="nick-only-row" style="display:none">
@@ -414,7 +414,7 @@
       <div class="auth-info">🔐 등록 시 설정한 비밀번호를 입력해주세요.</div>
       <div class="form-group">
         <label class="form-label">비밀번호</label>
-        <input type="password" class="form-input" id="auth-pw-input" placeholder="비밀번호 입력"
+        <input type="password" class="form-input" id="auth-pw-input" placeholder="숫자 4자리" maxlength="4" inputmode="numeric" pattern="[0-9]*" onkeydown="if(event.key==='Enter') confirmAuth()">
           onkeydown="if(event.key==='Enter') confirmAuth()">
       </div>
       <button class="btn-submit" onclick="confirmAuth()">확인</button>
@@ -466,10 +466,9 @@ let naverMarkers = {}; // ✅ leafletMarkers → naverMarkers 로 이름 정리
 
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function hashPw(pw) {
-  let h = 0;
-  for (let i = 0; i < pw.length; i++) h = (Math.imul(31, h) + pw.charCodeAt(i)) | 0;
-  return h.toString(36) + '_' + pw.length;
+  return String(pw).replace(/[^0-9]/g, '').slice(0, 4);
 }
+  
 function escHtml(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
@@ -559,7 +558,7 @@ async function initMap() {
   
 // ── MARKERS ───────────────────────────────────────────
 function addMarker(r) {
-  if (!r.lat || !r.lng) return; // 좌표 없으면 스킵
+  if (!r.lat || !r.lng) return; 
   const stars = '★'.repeat(r.star) + '☆'.repeat(5 - r.star);
   const marker = new naver.maps.Marker({
     position: new naver.maps.LatLng(r.lat, r.lng),
@@ -573,7 +572,13 @@ function addMarker(r) {
       anchor: new naver.maps.Point(60, 48)
     }
   });
-  naver.maps.Event.addListener(marker, 'click', () => showPopup(r.id));
+
+  // ✅ 클릭한 마커의 맛집 ID를 완벽하게 보장하기 위해 let으로 타겟 ID를 고정합니다.
+  const targetId = r.id;
+  naver.maps.Event.addListener(marker, 'click', () => {
+    showPopup(targetId);
+  });
+  
   naverMarkers[r.id] = marker;
 }
 
@@ -780,12 +785,31 @@ function closeAuthModal() {
 }
 async function confirmAuth() {
   const pw = document.getElementById('auth-pw-input').value.trim();
-  if (!pw) { showToast('비밀번호를 입력해주세요'); return; }
-  const r = restaurants.find(x=>x.id===currentPopupId);
-  if (!r) return;
-  if (hashPw(pw) !== r.pwHash) { showToast('❌ 비밀번호가 틀렸어요'); return; }
+  
+  // 1. 형식 검사: 숫자 4자리인지 체크
+  const numReg = /^[0-9]{4}$/;
+  if (!numReg.test(pw)) {
+    showToast('❌ 비밀번호는 숫자 4자리로만 입력해주세요.');
+    return;
+  }
+  
+  // 현재 띄워진 팝업의 맛집 데이터 찾기
+  const r = restaurants.find(x => x.id === currentPopupId);
+  if (!r) { 
+    showToast('❌ 대상 맛집 데이터를 찾을 수 없습니다.'); 
+    closeAuthModal();
+    return; 
+  }
+  
+  // 2. 비밀번호 비교 (동일하게 hashPw를 거친 값으로 비교)
+  if (hashPw(pw) !== r.pwHash) { 
+    showToast('❌ 비밀번호가 틀렸어요'); 
+    return; 
+  }
+  
   closeAuthModal();
 
+  // ✏️ 수정 모드 작동
   if (authAction === 'edit') {
     editingId = currentPopupId;
     document.getElementById('modal-title').textContent = '✏️ 맛집 수정';
@@ -798,14 +822,20 @@ async function confirmAuth() {
     return;
   }
 
+  // 🗑 삭제 모드 작동
   if (authAction === 'delete') {
-    const { error } = await supabaseClient.from('restaurants').delete().eq('id', currentPopupId);
-    if (error) { showToast('❌ 삭제 실패: ' + error.message); return; }
-    removeMarker(currentPopupId);
-    restaurants = restaurants.filter(x => x.id !== currentPopupId);
-    renderCards(restaurants);
-    closePopup();
-    showToast('🗑 삭제되었습니다');
+    try {
+      const { error } = await supabaseClient.from('restaurants').delete().eq('id', currentPopupId);
+      if (error) throw error;
+      
+      removeMarker(currentPopupId);
+      restaurants = restaurants.filter(x => x.id !== currentPopupId);
+      renderCards(restaurants);
+      closePopup();
+      showToast('🗑 삭제되었습니다');
+    } catch(err) {
+      showToast('❌ 삭제 실패: ' + (err.message || err));
+    }
   }
 }
 
