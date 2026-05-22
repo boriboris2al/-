@@ -94,9 +94,11 @@
     margin-bottom: 10px; cursor: pointer; transition: all 0.2s;
   }
   .restaurant-card:hover { border-color: var(--primary); box-shadow: 0 2px 12px rgba(232,82,26,0.15); transform: translateY(-1px); }
-  .card-top { display: flex; justify-content: space-between; align-items: flex-start; }
-  .card-name { font-size: 14px; font-weight: 700; margin-bottom: 3px; }
-  .card-stars { color: #F59E0B; font-size: 13px; }
+  .card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 4px; }
+  .card-name-wrap { display: flex; flex-direction: column; gap: 4px; }
+  .card-name { font-size: 14px; font-weight: 700; }
+  .card-badge { display: inline-block; font-size: 10px; font-weight: 700; background: var(--surface3); color: var(--text2); padding: 2px 6px; border-radius: 4px; width: max-content; }
+  .card-stars { color: #F59E0B; font-size: 13px; white-space: nowrap; }
   .card-stars span { color: var(--text3); font-size: 11px; margin-left: 3px; }
   .card-menu { font-size: 12px; color: var(--primary); font-weight: 500; margin: 5px 0 3px; }
   .card-meta { font-size: 11px; color: var(--text3); }
@@ -123,7 +125,9 @@
   #detail-popup.visible { opacity: 1; pointer-events: all; transform: translateY(0); }
   #detail-popup.full-map { left: calc(50% - 170px); }
   .popup-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .popup-name-box { display: flex; align-items: center; gap: 8px; }
   .popup-name { font-size: 17px; font-weight: 700; }
+  .popup-badge { font-size: 11px; font-weight: 700; background: var(--primary); color: #fff; padding: 2px 8px; border-radius: 4px; }
   .popup-stars { color: #F59E0B; font-size: 14px; }
   .popup-score { font-size: 12px; color: var(--text3); margin-left: 4px; }
   .popup-section { margin: 8px 0; font-size: 13px; }
@@ -169,13 +173,13 @@
   .modal-body { padding: 20px 24px; }
   .form-group { margin-bottom: 16px; }
   .form-label { font-size: 12px; font-weight: 700; color: var(--text2); margin-bottom: 6px; display: block; }
-  .form-input, .form-textarea {
+  .form-input, .form-textarea, .form-select {
     width: 100%; padding: 10px 14px;
     border: 1px solid var(--border2); border-radius: var(--radius);
     font-family: 'Noto Sans KR', sans-serif; font-size: 14px;
     background: #fff; color: var(--text); outline: none; transition: border-color 0.2s;
   }
-  .form-input:focus, .form-textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(232,82,26,0.1); }
+  .form-input:focus, .form-textarea:focus, .form-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(232,82,26,0.1); }
   .form-textarea { resize: vertical; min-height: 72px; }
   .star-input { display: flex; gap: 6px; }
   .star-btn { font-size: 28px; background: none; border: none; cursor: pointer; color: #D1C4A8; transition: color 0.15s; padding: 0; line-height: 1; }
@@ -297,7 +301,7 @@
     <span class="panel-count" id="count-badge">0곳</span>
   </div>
   <div id="search-box">
-    <input type="text" id="search-input" placeholder="🔍 가게 이름, 메뉴 검색..." oninput="filterCards(this.value)" />
+    <input type="text" id="search-input" placeholder="🔍 이름, 메뉴, 카테고리 검색..." oninput="filterCards(this.value)" />
   </div>
   <div id="restaurant-list">
     <div class="empty-state">
@@ -311,7 +315,10 @@
 
 <div id="detail-popup">
   <div class="popup-top">
-    <div class="popup-name" id="popup-name"></div>
+    <div class="popup-name-box">
+      <span class="popup-badge" id="popup-category">한식</span>
+      <div class="popup-name" id="popup-name"></div>
+    </div>
     <button class="btn-close-popup" onclick="closePopup()">✕</button>
   </div>
   <div>
@@ -363,6 +370,20 @@
         <input type="text" class="form-input" id="input-nick2" disabled style="background:var(--surface2);color:var(--text3)">
       </div>
       <hr class="divider">
+      <!-- ✅ 드롭다운 목록에서만 딱 고르도록 설계되어 있습니다! -->
+      <div class="form-group">
+        <label class="form-label">카테고리 *</label>
+        <select class="form-select" id="input-category">
+          <option value="">-- 카테고리 선택 --</option>
+          <option value="한식">한식 🇰🇷</option>
+          <option value="중식">중식 🇨🇳</option>
+          <option value="일식">일식 🇯🇵</option>
+          <option value="양식">양식 🇺🇸</option>
+          <option value="분식">분식 ➿</option>
+          <option value="카페">카페 ☕</option>
+          <option value="기타">기타 🍽</option>
+        </select>
+      </div>
       <div class="form-group">
         <label class="form-label">가게 이름 *</label>
         <input type="text" class="form-input" id="input-name" placeholder="예: 명동칼국수" maxlength="30">
@@ -474,7 +495,8 @@ function fromRow(row) {
     id: row.id, nick: row.nick, pwHash: row.pw_hash,
     name: row.name, address: row.address, maplink: row.maplink,
     menu: row.menu, note: row.note, star: row.star,
-    lat: row.lat, lng: row.lng, createdAt: row.created_at
+    lat: row.lat, lng: row.lng, createdAt: row.created_at,
+    category: row.category || '기타' 
   };
 }
 function toRow(r) {
@@ -482,7 +504,8 @@ function toRow(r) {
     id: r.id, nick: r.nick, pw_hash: r.pwHash,
     name: r.name, address: r.address, maplink: r.maplink,
     menu: r.menu, note: r.note, star: r.star,
-    lat: r.lat || null, lng: r.lng || null, created_at: r.createdAt
+    lat: r.lat || null, lng: r.lng || null, created_at: r.createdAt,
+    category: r.category 
   };
 }
 
@@ -555,7 +578,7 @@ function addMarker(r) {
     icon: {
       content: `
         <div class="pin-bubble">
-          ${escHtml(r.name)}
+          [${escHtml(r.category)}] ${escHtml(r.name)}
           <div class="pin-stars">${stars}</div>
         </div>`,
       anchor: new naver.maps.Point(60, 48)
@@ -603,10 +626,11 @@ function geocodeAddress(address) {
 
 // ── POPUP ─────────────────────────────────────────────
 function showPopup(id) {
-  // ✅ 데이터 타입 무관하게 안정적으로 찾도록 느슨한 비교(==) 적용
   const r = restaurants.find(x => x.id == id);
   if (!r) return;
   currentPopupId = id;
+  
+  document.getElementById('popup-category').textContent = r.category;
   document.getElementById('popup-name').textContent = r.name;
   document.getElementById('popup-stars').textContent = '★'.repeat(r.star)+'☆'.repeat(5-r.star);
   document.getElementById('popup-score').textContent = `${r.star}.0 / 5.0`;
@@ -639,7 +663,10 @@ function renderCards(list) {
   el.innerHTML = list.map(r => `
     <div class="restaurant-card" onclick="showPopup('${r.id}')">
       <div class="card-top">
-        <div class="card-name">${escHtml(r.name)}</div>
+        <div class="card-name-wrap">
+          <span class="card-badge">${escHtml(r.category)}</span>
+          <div class="card-name">${escHtml(r.name)}</div>
+        </div>
         <div class="card-stars">${'★'.repeat(r.star)}<span>${r.star}.0</span></div>
       </div>
       <div class="card-menu">🍴 ${escHtml(r.menu)}</div>
@@ -652,6 +679,7 @@ function filterCards(q) {
   renderCards(restaurants.filter(r =>
     r.name.toLowerCase().includes(l) ||
     r.menu.toLowerCase().includes(l) ||
+    r.category.toLowerCase().includes(l) || 
     (r.address||'').toLowerCase().includes(l)
   ));
 }
@@ -677,12 +705,13 @@ function closeRegisterModal() {
   document.getElementById('register-modal').classList.remove('visible');
 }
 function clearForm() {
-  ['input-nick','input-pw','input-name','input-address','input-maplink','input-menu','input-note']
+  ['input-nick','input-pw','input-category','input-name','input-address','input-maplink','input-menu','input-note']
     .forEach(id => { const e = document.getElementById(id); if(e) e.value=''; });
   setStar(0); currentStar = 0;
 }
 function fillFormForEdit(r) {
   document.getElementById('input-nick2').value = r.nick;
+  document.getElementById('input-category').value = r.category || '';
   document.getElementById('input-name').value = r.name;
   document.getElementById('input-address').value = r.address||'';
   document.getElementById('input-maplink').value = r.maplink||'';
@@ -696,6 +725,7 @@ async function submitRestaurant() {
   const isEdit  = !!editingId;
   const nick    = isEdit ? restaurants.find(x=>x.id==editingId).nick : document.getElementById('input-nick').value.trim();
   const pw      = isEdit ? null : document.getElementById('input-pw').value.trim();
+  const category= document.getElementById('input-category').value; 
   const name    = document.getElementById('input-name').value.trim();
   const address = document.getElementById('input-address').value.trim();
   const maplink = document.getElementById('input-maplink').value.trim();
@@ -712,6 +742,7 @@ async function submitRestaurant() {
     }
   }
   
+  if (!category)                { showToast('카테고리를 선택해주세요'); return; } 
   if (!name)                    { showToast('가게 이름을 입력해주세요'); return; }
   if (currentStar === 0)        { showToast('별점을 선택해주세요'); return; }
   if (!address)                 { showToast('주소를 입력해주세요'); return; }
@@ -731,7 +762,7 @@ async function submitRestaurant() {
 
   if (isEdit) {
     const r = restaurants.find(x=>x.id==editingId);
-    Object.assign(r, { name, address, maplink, menu, note, star: currentStar, lat: geo.lat, lng: geo.lng });
+    Object.assign(r, { name, address, maplink, menu, note, star: currentStar, lat: geo.lat, lng: geo.lng, category });
     const { error } = await supabaseClient.from('restaurants').update(toRow(r)).eq('id', r.id);
     if (error) { showToast('❌ 수정 실패: ' + error.message); btn.disabled=false; btn.textContent='✓ 수정하기'; return; }
     removeMarker(r.id);
@@ -741,7 +772,7 @@ async function submitRestaurant() {
     const newR = {
       id: genId(), nick, pwHash: hashPw(pw),
       name, address, maplink, menu, note, star: currentStar,
-      lat: geo.lat, lng: geo.lng, createdAt: Date.now()
+      lat: geo.lat, lng: geo.lng, createdAt: Date.now(), category
     };
     const { error } = await supabaseClient.from('restaurants').insert(toRow(newR));
     if (error) { showToast('❌ 등록 실패: ' + error.message); btn.disabled=false; btn.textContent='✓ 등록하기'; return; }
@@ -785,7 +816,6 @@ async function confirmAuth() {
     return;
   }
   
-  // ✅ 데이터 타입 무관하게 안정적으로 찾도록 느슨한 비교(==) 적용
   const r = restaurants.find(x => x.id == currentPopupId);
   if (!r) { 
     showToast('❌ 대상 맛집 데이터를 찾을 수 없습니다.'); 
@@ -793,7 +823,6 @@ async function confirmAuth() {
     return; 
   }
   
-  // ✅ 비교할 때도 타입 일치 보장
   if (String(hashPw(pw)) !== String(r.pwHash)) { 
     showToast('❌ 비밀번호가 틀렸어요'); 
     return; 
