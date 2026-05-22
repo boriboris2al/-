@@ -8,10 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Bebas+Neue&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <!-- 네이버 지도 SDK -->
-<script
-  type="text/javascript"
-  src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=uixphb4538&submodules=geocoder">
-</script>
+<script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=uixphb4538&submodules=geocoder"></script>
 <style>
   :root {
     --primary: #E8521A;
@@ -57,15 +54,15 @@
     cursor: pointer; transition: all 0.2s;
   }
   .btn-register:hover { background: var(--surface2); transform: translateY(-1px); }
- #map {
-  position: fixed;
-  top: 56px;
-  left: 0;
-  width: calc(100vw - 340px);
-  height: calc(100vh - 56px);
-  z-index: 1;
+  #map {
+    position: fixed;
+    top: 56px;
+    left: 0;
+    width: calc(100vw - 340px);
+    height: calc(100vh - 56px);
+    z-index: 1;
   }
-  #map.full {   width: 100vw; }
+  #map.full { width: 100vw; }
   #side-panel {
     position: fixed;
     top: 56px; right: 0; bottom: 0; width: 340px;
@@ -414,8 +411,8 @@
       <div class="auth-info">🔐 등록 시 설정한 비밀번호를 입력해주세요.</div>
       <div class="form-group">
         <label class="form-label">비밀번호</label>
-       <input type="password" class="form-input" id="auth-pw-input" placeholder="숫자 4자리" maxlength="4" inputmode="numeric" pattern="[0-9]*" onkeydown="if(event.key==='Enter') confirmAuth()">
-          onkeydown="if(event.key==='Enter') confirmAuth()">
+        <!-- ✅ 중복 타이핑 완벽 제거 -->
+        <input type="password" class="form-input" id="auth-pw-input" placeholder="숫자 4자리" maxlength="4" inputmode="numeric" pattern="[0-9]*" onkeydown="if(event.key==='Enter') confirmAuth()">
       </div>
       <button class="btn-submit" onclick="confirmAuth()">확인</button>
     </div>
@@ -435,7 +432,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_bQn46kVvqUPi_EAooC0tPw_2ZKFYWMJ';
 
 // ── 회사 위치 (한국리서치) ─────────────────────────────
 const OFFICE = {
-  name: ' 한국리서치',
+  name: '한국리서치',
   address: '서울특별시 강남구 봉은사로 179'
 };
 
@@ -462,7 +459,7 @@ let currentStar = 0;
 let currentPopupId = null;
 let panelVisible = true;
 let map;
-let naverMarkers = {}; // ✅ leafletMarkers → naverMarkers 로 이름 정리
+let naverMarkers = {}; 
 
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
 function hashPw(pw) {
@@ -506,11 +503,8 @@ async function fetchAll() {
 }
 
 // ── MAP (네이버) ───────────────────────────────────────
-
 async function initMap() {
-
   const mapEl = document.getElementById('map');
-
   if (mapEl) {
     mapEl.style.position = 'fixed';
     mapEl.style.top = '56px';
@@ -519,10 +513,7 @@ async function initMap() {
     mapEl.style.right = panelVisible ? '340px' : '0';
   }
 
-  // 회사 주소를 네이버 geocoder로 변환
   const officeGeo = await geocodeAddress(OFFICE.address);
-
-  // 실패 시 대비 fallback
   const lat = officeGeo?.lat || 37.507018;
   const lng = officeGeo?.lng || 127.033175;
 
@@ -536,7 +527,6 @@ async function initMap() {
     naver.maps.Event.trigger(map, 'resize');
   }, 300);
 
-  // 회사 마커
   new naver.maps.Marker({
     position: new naver.maps.LatLng(lat, lng),
     map: map,
@@ -573,7 +563,6 @@ function addMarker(r) {
     }
   });
 
-  // ✅ 클릭한 마커의 맛집 ID를 완벽하게 보장하기 위해 let으로 타겟 ID를 고정합니다.
   const targetId = r.id;
   naver.maps.Event.addListener(marker, 'click', () => {
     showPopup(targetId);
@@ -596,10 +585,8 @@ function rebuildMarkers() {
 }
 
 // ── GEOCODING ─────────────────────────────────────────
-// geocoder JS를 별도 <script>로 로드 → document.write 차단 회피
 function geocodeAddress(address) {
   return new Promise((resolve) => {
-    // geocoder 모듈이 아직 로드 안 됐을 경우 대비
     if (!naver.maps.Service || !naver.maps.Service.geocode) {
       console.warn('Geocoder not ready'); resolve(null); return;
     }
@@ -617,7 +604,8 @@ function geocodeAddress(address) {
 
 // ── POPUP ─────────────────────────────────────────────
 function showPopup(id) {
-  const r = restaurants.find(x => x.id === id);
+  // ✅ 데이터 타입 무관하게 안정적으로 찾도록 느슨한 비교(==) 적용
+  const r = restaurants.find(x => x.id == id);
   if (!r) return;
   currentPopupId = id;
   document.getElementById('popup-name').textContent = r.name;
@@ -636,7 +624,7 @@ function closePopup() {
   currentPopupId = null;
 }
 function openMapLink() {
-  const r = restaurants.find(x => x.id === currentPopupId);
+  const r = restaurants.find(x => x.id == currentPopupId);
   if (r?.maplink) window.open(r.maplink, '_blank');
   else showToast('지도 링크가 없어요');
 }
@@ -707,7 +695,7 @@ function fillFormForEdit(r) {
 async function submitRestaurant() {
   if (!dbReady) { showToast('⚠️ Supabase 연결을 먼저 설정해주세요'); return; }
   const isEdit  = !!editingId;
-  const nick    = isEdit ? restaurants.find(x=>x.id===editingId).nick : document.getElementById('input-nick').value.trim();
+  const nick    = isEdit ? restaurants.find(x=>x.id==editingId).nick : document.getElementById('input-nick').value.trim();
   const pw      = isEdit ? null : document.getElementById('input-pw').value.trim();
   const name    = document.getElementById('input-name').value.trim();
   const address = document.getElementById('input-address').value.trim();
@@ -715,7 +703,6 @@ async function submitRestaurant() {
   const menu    = document.getElementById('input-menu').value.trim();
   const note    = document.getElementById('input-note').value.trim();
 
-  // 1. 유효성 검사 (등록 모드일 때 비밀번호가 정확히 숫자 4자리인지 체크)
   if (!isEdit && !nick)         { showToast('닉네임을 입력해주세요'); return; }
   
   if (!isEdit) {
@@ -744,7 +731,7 @@ async function submitRestaurant() {
   btn.textContent = '저장 중...';
 
   if (isEdit) {
-    const r = restaurants.find(x=>x.id===editingId);
+    const r = restaurants.find(x=>x.id==editingId);
     Object.assign(r, { name, address, maplink, menu, note, star: currentStar, lat: geo.lat, lng: geo.lng });
     const { error } = await supabaseClient.from('restaurants').update(toRow(r)).eq('id', r.id);
     if (error) { showToast('❌ 수정 실패: ' + error.message); btn.disabled=false; btn.textContent='✓ 수정하기'; return; }
@@ -752,7 +739,6 @@ async function submitRestaurant() {
     addMarker(r); 
     showToast('✓ 수정 완료!');
   } else {
-    // ✅ 등록할 때 hashPw(pw)를 거쳐 숫자 4자리가 고스란히 데이터베이스로 들어갑니다.
     const newR = {
       id: genId(), nick, pwHash: hashPw(pw),
       name, address, maplink, menu, note, star: currentStar,
@@ -769,6 +755,7 @@ async function submitRestaurant() {
   renderCards(restaurants);
   closeRegisterModal();
 }
+
 // ── EDIT / DELETE ─────────────────────────────────────
 function openEditAuth() {
   if (!currentPopupId) return;
@@ -793,30 +780,28 @@ function closeAuthModal() {
 async function confirmAuth() {
   const pw = document.getElementById('auth-pw-input').value.trim();
   
-  // 1. 형식 검사: 숫자 4자리인지 체크
   const numReg = /^[0-9]{4}$/;
   if (!numReg.test(pw)) {
     showToast('❌ 비밀번호는 숫자 4자리로만 입력해주세요.');
     return;
   }
   
-  // 현재 띄워진 팝업의 맛집 데이터 찾기
-  const r = restaurants.find(x => x.id === currentPopupId);
+  // ✅ 데이터 타입 무관하게 안정적으로 찾도록 느슨한 비교(==) 적용
+  const r = restaurants.find(x => x.id == currentPopupId);
   if (!r) { 
     showToast('❌ 대상 맛집 데이터를 찾을 수 없습니다.'); 
     closeAuthModal();
     return; 
   }
   
-  // 2. 비밀번호 비교 (동일하게 hashPw를 거친 값으로 비교)
-  if (hashPw(pw) !== r.pwHash) { 
+  // ✅ 비교할 때도 타입 일치 보장
+  if (String(hashPw(pw)) !== String(r.pwHash)) { 
     showToast('❌ 비밀번호가 틀렸어요'); 
     return; 
   }
   
   closeAuthModal();
 
-  // ✏️ 수정 모드 작동
   if (authAction === 'edit') {
     editingId = currentPopupId;
     document.getElementById('modal-title').textContent = '✏️ 맛집 수정';
@@ -829,14 +814,13 @@ async function confirmAuth() {
     return;
   }
 
-  // 🗑 삭제 모드 작동
   if (authAction === 'delete') {
     try {
       const { error } = await supabaseClient.from('restaurants').delete().eq('id', currentPopupId);
       if (error) throw error;
       
       removeMarker(currentPopupId);
-      restaurants = restaurants.filter(x => x.id !== currentPopupId);
+      restaurants = restaurants.filter(x => x.id != currentPopupId);
       renderCards(restaurants);
       closePopup();
       showToast('🗑 삭제되었습니다');
@@ -849,27 +833,22 @@ async function confirmAuth() {
 // ── PANEL TOGGLE ──────────────────────────────────────
 function togglePanel() {
   panelVisible = !panelVisible;
-
   const btn = document.getElementById('toggle-panel');
   const popup = document.getElementById('detail-popup');
 
   if (panelVisible) {
     document.getElementById('side-panel').classList.remove('hidden');
     document.getElementById('map').classList.remove('full');
-
     btn.textContent = '▶';
     btn.style.right = '350px';
     btn.classList.remove('closed');
-
     popup.classList.remove('full-map');
   } else {
     document.getElementById('side-panel').classList.add('hidden');
     document.getElementById('map').classList.add('full');
-
     btn.textContent = '◀';
     btn.style.right = '10px';
     btn.classList.add('closed');
-
     popup.classList.add('full-map');
   }
 
@@ -877,6 +856,7 @@ function togglePanel() {
     naver.maps.Event.trigger(map, 'resize');
   }
 }
+
 // ── TOAST ────────────────────────────────────────────
 let toastTimer;
 function showToast(msg) {
@@ -889,27 +869,21 @@ function showToast(msg) {
 // ── INIT  ───────────────────
 window.addEventListener('DOMContentLoaded', async () => {
   try {
-   await initMap();
-
+    await initMap();
     const ok = initSupabase();
-
     if (ok) {
       await fetchAll();
-
       if (restaurants.length === 0) {
         showToast('✨ 첫 맛집을 등록해보세요!');
       }
     } else {
       renderCards([]);
     }
-
   } catch (e) {
     console.error('Init error:', e);
     renderCards([]);
-
   } finally {
     const loading = document.getElementById('loading');
-
     if (loading) {
       loading.style.display = 'none';
     }
