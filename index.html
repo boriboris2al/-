@@ -806,21 +806,34 @@ async function confirmAuth() {
 // ── PANEL TOGGLE ──────────────────────────────────────
 function togglePanel() {
   panelVisible = !panelVisible;
+
   const btn = document.getElementById('toggle-panel');
   const popup = document.getElementById('detail-popup');
+
   if (panelVisible) {
     document.getElementById('side-panel').classList.remove('hidden');
     document.getElementById('map').classList.remove('full');
-    btn.textContent = '▶'; btn.style.right = '350px'; btn.classList.remove('closed');
+
+    btn.textContent = '▶';
+    btn.style.right = '350px';
+    btn.classList.remove('closed');
+
     popup.classList.remove('full-map');
   } else {
     document.getElementById('side-panel').classList.add('hidden');
     document.getElementById('map').classList.add('full');
-    btn.textContent = '◀'; btn.style.right = '10px'; btn.classList.add('closed');
+
+    btn.textContent = '◀';
+    btn.style.right = '10px';
+    btn.classList.add('closed');
+
     popup.classList.add('full-map');
   }
-}
 
+  if (map) {
+    naver.maps.Event.trigger(map, 'resize');
+  }
+}
 // ── TOAST ────────────────────────────────────────────
 let toastTimer;
 function showToast(msg) {
@@ -846,19 +859,16 @@ window.addEventListener('DOMContentLoaded', async () => {
     } else {
       renderCards([]);
     }
+
   } catch (e) {
     console.error('Init error:', e);
     renderCards([]);
+
   } finally {
     const loading = document.getElementById('loading');
 
     if (loading) {
       loading.style.display = 'none';
-    }
-
-      setTimeout(() => {
-        loading.style.display = 'none';
-      }, 400);
     }
   }
 });
