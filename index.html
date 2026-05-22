@@ -715,9 +715,17 @@ async function submitRestaurant() {
   const menu    = document.getElementById('input-menu').value.trim();
   const note    = document.getElementById('input-note').value.trim();
 
-  // ✅ 유효성 검사를 먼저 (geocode 전에)
+  // 1. 유효성 검사 (등록 모드일 때 비밀번호가 정확히 숫자 4자리인지 체크)
   if (!isEdit && !nick)         { showToast('닉네임을 입력해주세요'); return; }
-  if (!isEdit && pw.length < 4) { showToast('비밀번호는 4자 이상이에요'); return; }
+  
+  if (!isEdit) {
+    const numReg = /^[0-9]{4}$/;
+    if (!numReg.test(pw)) {
+      showToast('❌ 비밀번호는 숫자 4자리로만 입력해주세요.');
+      return;
+    }
+  }
+  
   if (!name)                    { showToast('가게 이름을 입력해주세요'); return; }
   if (currentStar === 0)        { showToast('별점을 선택해주세요'); return; }
   if (!address)                 { showToast('주소를 입력해주세요'); return; }
@@ -726,7 +734,6 @@ async function submitRestaurant() {
   const btn = document.getElementById('submit-btn');
   btn.disabled = true; btn.textContent = '위치 확인 중...';
 
-  // ✅ SDK 내장 geocoder 사용 (CORS 없음)
   const geo = await geocodeAddress(address);
   if (!geo) {
     showToast('⚠️ 주소 위치를 찾을 수 없어요. 도로명 주소로 다시 입력해보세요.');
@@ -742,9 +749,10 @@ async function submitRestaurant() {
     const { error } = await supabaseClient.from('restaurants').update(toRow(r)).eq('id', r.id);
     if (error) { showToast('❌ 수정 실패: ' + error.message); btn.disabled=false; btn.textContent='✓ 수정하기'; return; }
     removeMarker(r.id);
-    addMarker(r); // ✅ 수정 후 마커 다시 추가
+    addMarker(r); 
     showToast('✓ 수정 완료!');
   } else {
+    // ✅ 등록할 때 hashPw(pw)를 거쳐 숫자 4자리가 고스란히 데이터베이스로 들어갑니다.
     const newR = {
       id: genId(), nick, pwHash: hashPw(pw),
       name, address, maplink, menu, note, star: currentStar,
@@ -753,7 +761,7 @@ async function submitRestaurant() {
     const { error } = await supabaseClient.from('restaurants').insert(toRow(newR));
     if (error) { showToast('❌ 등록 실패: ' + error.message); btn.disabled=false; btn.textContent='✓ 등록하기'; return; }
     restaurants.unshift(newR);
-    addMarker(newR); // ✅ 등록 후 마커 추가
+    addMarker(newR); 
     showToast('✓ 등록 완료!');
   }
 
@@ -761,7 +769,6 @@ async function submitRestaurant() {
   renderCards(restaurants);
   closeRegisterModal();
 }
-
 // ── EDIT / DELETE ─────────────────────────────────────
 function openEditAuth() {
   if (!currentPopupId) return;
