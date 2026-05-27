@@ -827,10 +827,10 @@ async function confirmAuth() {
     showToast('❌ 비밀번호가 틀렸어요'); 
     return; 
   }
-  
+  const action = authAction;
   closeAuthModal();
 
-  if (authAction === 'edit') {
+  if (action === 'edit') {
     editingId = currentPopupId;
     document.getElementById('modal-title').textContent = '✏️ 맛집 수정';
     document.getElementById('submit-btn').textContent = '✓ 수정하기';
@@ -842,7 +842,7 @@ async function confirmAuth() {
     return;
   }
 
-  if (authAction === 'delete') {
+  if (action === 'delete') {
     try {
       const { error } = await supabaseClient.from('restaurants').delete().eq('id', currentPopupId);
       if (error) throw error;
