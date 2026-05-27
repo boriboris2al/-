@@ -471,7 +471,7 @@ function initSupabase() {
   return true;
 }
 
-// ── DATA ──────────────────────────────────────────────
+// ── DATA & UTILS ──────────────────────────────────────
 let restaurants = [];
 let editingId = null;
 let authAction = null;
@@ -482,13 +482,8 @@ let map;
 let naverMarkers = {}; 
 
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
-function hashPw(pw) {
-  return String(pw).replace(/[^0-9]/g, '').slice(0, 4);
-}
-  
-function escHtml(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-}
+function hashPw(pw) { return String(pw).replace(/[^0-9]/g, '').slice(0, 4); }
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function fromRow(row) {
   return {
@@ -509,92 +504,16 @@ function toRow(r) {
   };
 }
 
-async function fetchAll() {
-  if (!dbReady) return;
-  try {
-    const { data, error } = await supabaseClient
-      .from('restaurants').select('*').order('created_at', { ascending: false });
-    if (error) throw error;
-    restaurants = (data || []).map(fromRow);
-    rebuildMarkers();
-    renderCards(restaurants);
-  } catch(e) {
-    showToast('❌ 데이터 로드 오류: ' + (e.message || e));
-    renderCards([]);
-  }
+// ── TOAST ────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
 }
 
-// ── MAP (네이버) ───────────────────────────────────────
-async function initMap() {
-  const mapEl = document.getElementById('map');
-  if (mapEl) {
-    mapEl.style.position = 'fixed';
-    mapEl.style.top = '56px';
-    mapEl.style.left = '0';
-    mapEl.style.bottom = '0';
-    mapEl.style.right = panelVisible ? '340px' : '0';
-  }
-
-  const officeGeo = await geocodeAddress(OFFICE.address); // 👈 여기서 geocodeAddress를 사용합니다!
-  const lat = officeGeo?.lat || 37.507018;
-  const lng = officeGeo?.lng || 127.033175;
-
-  map = new naver.maps.Map('map', {
-    center: new naver.maps.LatLng(lat, lng),
-    zoom: 17,
-    mapTypeId: naver.maps.MapTypeId.NORMAL
-  });
-
-  setTimeout(() => {
-    naver.maps.Event.trigger(map, 'resize');
-  }, 300);
-
-  new naver.maps.Marker({
-    position: new naver.maps.LatLng(lat, lng),
-    map: map,
-    icon: {
-      // ✅ 회사 마커에서 주소 영역(office-pin-sub)만 깔끔하게 제거되었습니다.
-      content: `
-        <div class="office-pin-wrap">
-          <div class="office-pin-bubble">
-            🏢 ${OFFICE.name}
-          </div>
-        </div>`,
-      anchor: new naver.maps.Point(80, 48)
-    },
-    zIndex: 1000
-  });
-
-  naver.maps.Event.addListener(map, 'click', closePopup);
-}
-  
-// ── MARKERS ───────────────────────────────────────────
-function addMarker(r) {
-  if (!r.lat || !r.lng) return; 
-  const stars = '★'.repeat(r.star) + '☆'.repeat(5 - r.star);
-  const marker = new naver.maps.Marker({
-    position: new naver.maps.LatLng(r.lat, r.lng),
-    map: map,
-    icon: {
-      content: `
-        <div class="pin-bubble">
-          [${escHtml(r.category)}] ${escHtml(r.name)}
-          <div class="pin-stars">${stars}</div>
-        </div>`,
-      anchor: new naver.maps.Point(60, 48)
-    },
-    zIndex: 100 // 기본 zIndex
-  });
-
-  const targetId = r.id;
-  naver.maps.Event.addListener(marker, 'click', () => {
-    showPopup(targetId);
-  });
-  
-  naverMarkers[r.id] = marker;
-}
-
-// ── GEOCODING (⚠️ 이 부분은 기존처럼 그대로 유지하셔야 합니다!) ─────────────────
+// ── GEOCODING ─────────────────────────────────────────
 function geocodeAddress(address) {
   return new Promise((resolve) => {
     if (!naver.maps.Service || !naver.maps.Service.geocode) {
@@ -612,7 +531,12 @@ function geocodeAddress(address) {
   });
 }
 
-// ── POPUP ─────────────────────────────────────────────
+// ── POPUP (오류 해결을 위해 상단으로 이동) ──────────────────────
+function closePopup() {
+  document.getElementById('detail-popup').classList.remove('visible');
+  currentPopupId = null;
+}
+
 function showPopup(id) {
   const r = restaurants.find(x => x.id == id);
   if (!r) return;
@@ -638,6 +562,97 @@ function showPopup(id) {
   document.getElementById('detail-popup').classList.add('visible');
   if (r.lat && r.lng) map.panTo(new naver.maps.LatLng(r.lat, r.lng));
 }
+
+function openMapLink() {
+  const r = restaurants.find(x => x.id == currentPopupId);
+  if (r?.maplink) window.open(r.maplink, '_blank');
+  else showToast('지도 링크가 없어요');
+}
+
+// ── MAP (네이버) ───────────────────────────────────────
+async function initMap() {
+  const mapEl = document.getElementById('map');
+  if (mapEl) {
+    mapEl.style.position = 'fixed';
+    mapEl.style.top = '56px';
+    mapEl.style.left = '0';
+    mapEl.style.bottom = '0';
+    mapEl.style.right = panelVisible ? '340px' : '0';
+  }
+
+  const officeGeo = await geocodeAddress(OFFICE.address);
+  const lat = officeGeo?.lat || 37.507018;
+  const lng = officeGeo?.lng || 127.033175;
+
+  map = new naver.maps.Map('map', {
+    center: new naver.maps.LatLng(lat, lng),
+    zoom: 17,
+    mapTypeId: naver.maps.MapTypeId.NORMAL
+  });
+
+  setTimeout(() => {
+    naver.maps.Event.trigger(map, 'resize');
+  }, 300);
+
+  new naver.maps.Marker({
+    position: new naver.maps.LatLng(lat, lng),
+    map: map,
+    icon: {
+      // ✅ 회사 마커에서 주소 삭제 완료
+      content: `
+        <div class="office-pin-wrap">
+          <div class="office-pin-bubble">
+            🏢 ${OFFICE.name}
+          </div>
+        </div>`,
+      anchor: new naver.maps.Point(80, 48)
+    },
+    zIndex: 1000
+  });
+
+  // 이제 상단에 closePopup이 먼저 정의되어 있으므로 에러가 나지 않습니다.
+  naver.maps.Event.addListener(map, 'click', closePopup);
+}
+  
+// ── MARKERS ───────────────────────────────────────────
+function addMarker(r) {
+  if (!r.lat || !r.lng) return; 
+  const stars = '★'.repeat(r.star) + '☆'.repeat(5 - r.star);
+  const marker = new naver.maps.Marker({
+    position: new naver.maps.LatLng(r.lat, r.lng),
+    map: map,
+    icon: {
+      content: `
+        <div class="pin-bubble">
+          [${escHtml(r.category)}] ${escHtml(r.name)}
+          <div class="pin-stars">${stars}</div>
+        </div>`,
+      anchor: new naver.maps.Point(60, 48)
+    },
+    zIndex: 100
+  });
+
+  const targetId = r.id;
+  naver.maps.Event.addListener(marker, 'click', () => {
+    showPopup(targetId);
+  });
+  
+  naverMarkers[r.id] = marker;
+}
+
+function removeMarker(id) {
+  if (naverMarkers[id]) {
+    naverMarkers[id].setMap(null);
+    delete naverMarkers[id];
+  }
+}
+
+function rebuildMarkers() {
+  Object.keys(naverMarkers).forEach(id => naverMarkers[id].setMap(null));
+  naverMarkers = {};
+  restaurants.forEach(r => addMarker(r));
+}
+
 // ── CARDS ─────────────────────────────────────────────
 function renderCards(list) {
   document.getElementById('count-badge').textContent = `${restaurants.length}곳`;
@@ -660,6 +675,7 @@ function renderCards(list) {
       <div class="card-nick">👤 ${escHtml(r.nick)}</div>
     </div>`).join('');
 }
+
 function filterCards(q) {
   const l = q.toLowerCase();
   renderCards(restaurants.filter(r =>
@@ -853,14 +869,14 @@ function togglePanel() {
   if (panelVisible) {
     document.getElementById('side-panel').classList.remove('hidden');
     document.getElementById('map').classList.remove('full');
-    btn.textContent = '▶';
+    btn.textContent = '◀';
     btn.style.right = '350px';
     btn.classList.remove('closed');
     popup.classList.remove('full-map');
   } else {
     document.getElementById('side-panel').classList.add('hidden');
     document.getElementById('map').classList.add('full');
-    btn.textContent = '◀';
+    btn.textContent = '▶';
     btn.style.right = '10px';
     btn.classList.add('closed');
     popup.classList.add('full-map');
@@ -871,18 +887,25 @@ function togglePanel() {
   }
 }
 
-// ── TOAST ────────────────────────────────────────────
-let toastTimer;
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  t.textContent = msg; t.classList.add('show');
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+async function fetchAll() {
+  if (!dbReady) return;
+  try {
+    const { data, error } = await supabaseClient
+      .from('restaurants').select('*').order('created_at', { ascending: false });
+    if (error) throw error;
+    restaurants = (data || []).map(fromRow);
+    rebuildMarkers();
+    renderCards(restaurants);
+  } catch(e) {
+    showToast('❌ 데이터 로드 오류: ' + (e.message || e));
+    renderCards([]);
+  }
 }
 
 // ── INIT  ───────────────────
 window.addEventListener('DOMContentLoaded', async () => {
   try {
+    // ⚠️ 오류 해결 포인트: 상단에 closePopup과 geocodeAddress가 먼저 완전히 마련된 후 호출됩니다.
     await initMap();
     const ok = initSupabase();
     if (ok) {
