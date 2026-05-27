@@ -535,7 +535,7 @@ async function initMap() {
     mapEl.style.right = panelVisible ? '340px' : '0';
   }
 
-  const officeGeo = await geocodeAddress(OFFICE.address);
+  const officeGeo = await geocodeAddress(OFFICE.address); // 👈 여기서 geocodeAddress를 사용합니다!
   const lat = officeGeo?.lat || 37.507018;
   const lng = officeGeo?.lng || 127.033175;
 
@@ -553,11 +553,11 @@ async function initMap() {
     position: new naver.maps.LatLng(lat, lng),
     map: map,
     icon: {
+      // ✅ 회사 마커에서 주소 영역(office-pin-sub)만 깔끔하게 제거되었습니다.
       content: `
         <div class="office-pin-wrap">
           <div class="office-pin-bubble">
             🏢 ${OFFICE.name}
-            <div class="office-pin-sub">${OFFICE.address}</div>
           </div>
         </div>`,
       anchor: new naver.maps.Point(80, 48)
@@ -582,7 +582,8 @@ function addMarker(r) {
           <div class="pin-stars">${stars}</div>
         </div>`,
       anchor: new naver.maps.Point(60, 48)
-    }
+    },
+    zIndex: 100 // 기본 zIndex
   });
 
   const targetId = r.id;
@@ -593,20 +594,7 @@ function addMarker(r) {
   naverMarkers[r.id] = marker;
 }
 
-function removeMarker(id) {
-  if (naverMarkers[id]) {
-    naverMarkers[id].setMap(null);
-    delete naverMarkers[id];
-  }
-}
-
-function rebuildMarkers() {
-  Object.keys(naverMarkers).forEach(id => naverMarkers[id].setMap(null));
-  naverMarkers = {};
-  restaurants.forEach(r => addMarker(r));
-}
-
-// ── GEOCODING ─────────────────────────────────────────
+// ── GEOCODING (⚠️ 이 부분은 기존처럼 그대로 유지하셔야 합니다!) ─────────────────
 function geocodeAddress(address) {
   return new Promise((resolve) => {
     if (!naver.maps.Service || !naver.maps.Service.geocode) {
@@ -630,6 +618,14 @@ function showPopup(id) {
   if (!r) return;
   currentPopupId = id;
   
+  // ✅ 클릭한 핀의 우선순위(zIndex)를 최상단으로 올리는 로직
+  Object.keys(naverMarkers).forEach(markerId => {
+    if (naverMarkers[markerId]) naverMarkers[markerId].setZIndex(100);
+  });
+  if (naverMarkers[id]) {
+    naverMarkers[id].setZIndex(990);
+  }
+
   document.getElementById('popup-category').textContent = r.category;
   document.getElementById('popup-name').textContent = r.name;
   document.getElementById('popup-stars').textContent = '★'.repeat(r.star)+'☆'.repeat(5-r.star);
@@ -642,16 +638,6 @@ function showPopup(id) {
   document.getElementById('detail-popup').classList.add('visible');
   if (r.lat && r.lng) map.panTo(new naver.maps.LatLng(r.lat, r.lng));
 }
-function closePopup() {
-  document.getElementById('detail-popup').classList.remove('visible');
-  currentPopupId = null;
-}
-function openMapLink() {
-  const r = restaurants.find(x => x.id == currentPopupId);
-  if (r?.maplink) window.open(r.maplink, '_blank');
-  else showToast('지도 링크가 없어요');
-}
-
 // ── CARDS ─────────────────────────────────────────────
 function renderCards(list) {
   document.getElementById('count-badge').textContent = `${restaurants.length}곳`;
