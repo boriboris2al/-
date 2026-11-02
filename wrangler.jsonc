@@ -17,7 +17,7 @@
       "database_name": "hanmazzi-db",
       // Cloudflare 대시보드 → Storage & Databases → D1 에서 hanmazzi-db 를 만든 뒤
       // 그 데이터베이스의 ID 를 아래에 붙여 넣으세요. (README 참고)
-      "database_id": "PASTE-YOUR-D1-DATABASE-ID-HERE"
+      "database_id": "47780d8c-a4cc-4196-986a-4bce53a33335"
     }
   ],
   "compatibility_flags": [
