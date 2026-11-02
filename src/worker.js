@@ -6,7 +6,6 @@
 //   POST   /api/restaurants/:id/verify   비밀번호 확인 { pw }
 //   PUT    /api/restaurants/:id          수정   { pw, name, ... }
 //   DELETE /api/restaurants/:id          삭제   { pw }
-//   POST   /api/import                   Supabase 데이터 옮기기 (DB가 비어 있을 때 한 번만)
 
 const SCHEMA = `CREATE TABLE IF NOT EXISTS restaurants (
   id         TEXT PRIMARY KEY,
@@ -45,13 +44,6 @@ const cleanPw = (pw) => String(pw ?? '').replace(/[^0-9]/g, '').slice(0, 4);
 const isPw = (pw) => /^[0-9]{4}$/.test(String(pw ?? ''));
 const str = (v, max = 2000) => (v == null ? null : String(v).slice(0, max));
 const num = (v) => (v == null || v === '' || Number.isNaN(Number(v)) ? null : Number(v));
-const toMillis = (v) => {
-  if (v == null || v === '') return Date.now();
-  if (typeof v === 'number') return v;
-  if (/^\d+$/.test(String(v))) return Number(v);
-  const t = Date.parse(v);
-  return Number.isNaN(t) ? Date.now() : t;
-};
 
 function fields(body) {
   return {
@@ -144,30 +136,6 @@ async function handleApi(request, env, path) {
       .run();
     const updated = await db.prepare(`SELECT ${PUBLIC_COLS} FROM restaurants WHERE id = ?`).bind(id).first();
     return json(updated);
-  }
-
-  if (path === '/api/import' && method === 'POST') {
-    const { count } = await db.prepare('SELECT COUNT(*) AS count FROM restaurants').first();
-    if (count > 0) return fail(`이미 데이터가 ${count}개 있어서 가져오기를 막았어요 (처음 한 번만 가능)`, 409);
-    const body = await readBody(request);
-    const rows = Array.isArray(body) ? body : body.rows;
-    if (!Array.isArray(rows) || rows.length === 0) return fail('가져올 데이터가 없어요');
-    if (rows.length > 5000) return fail('한 번에 5000개까지만 가져올 수 있어요');
-    const stmt = db.prepare(
-      `INSERT OR IGNORE INTO restaurants (id, nick, pw_hash, name, address, maplink, menu, note, star, lat, lng, created_at, category)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    );
-    const batch = rows
-      .filter((r) => r && r.id != null && r.name)
-      .map((r) => {
-        const f = fields(r);
-        return stmt.bind(String(r.id), str(r.nick, 50) || '익명', cleanPw(r.pw_hash ?? r.pwHash),
-          f.name, f.address, f.maplink, f.menu, f.note, f.star, f.lat, f.lng,
-          toMillis(r.created_at ?? r.createdAt), f.category);
-      });
-    if (batch.length === 0) return fail('가져올 수 있는 행이 없어요');
-    await db.batch(batch);
-    return json({ ok: true, imported: batch.length });
   }
 
   return fail('없는 주소예요', 404);
