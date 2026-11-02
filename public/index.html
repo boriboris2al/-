@@ -227,7 +227,8 @@
   .modal {
     background: var(--surface-card); border-radius: var(--radius-lg);
     width: 460px; max-width: calc(100vw - 32px);
-    max-height: calc(100vh - 64px); overflow-y: auto;
+    max-height: calc(100vh - 64px); max-height: calc(100dvh - 64px);
+    display: flex; flex-direction: column; overflow: hidden;
     box-shadow: var(--shadow-lg);
     transform: scale(0.96); transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
     border: 1px solid var(--border);
@@ -237,14 +238,19 @@
   .modal-header {
     padding: 22px 24px 18px; border-bottom: 1px solid var(--border);
     display: flex; align-items: center; justify-content: space-between;
-    position: sticky; top: 0; background: var(--surface-card); z-index: 1;
+    background: var(--surface-card); flex-shrink: 0;
   }
   .modal-title { font-size: 18px; font-weight: 800; color: var(--text); }
   .modal-subtitle { font-size: 12px; color: var(--text-light); margin-top: 2px; }
   .btn-close { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-light); }
   .btn-close:hover { color: var(--text); }
   
-  .modal-body { padding: 24px; background: #ffffff; }
+  .modal-body {
+    padding: 24px; background: #ffffff;
+    flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain;
+    scrollbar-width: thin; scrollbar-color: #DDE2E5 transparent;
+  }
+  .modal-body::-webkit-scrollbar-track { background: transparent; }
   .form-group { margin-bottom: 18px; }
   .form-label { font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px; display: block; }
   
@@ -298,6 +304,53 @@
     backdrop-filter: blur(4px);
   }
   #toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* 📱 모바일: 위쪽은 지도, 아래쪽은 맛집 목록 시트 */
+  @media (max-width: 768px) {
+    header { padding: 0 14px; }
+    .logo { font-size: 21px; gap: 6px; min-width: 0; }
+    .logo span { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .btn-register { padding: 8px 14px; white-space: nowrap; flex-shrink: 0; }
+
+    #map { width: 100vw; height: calc(55vh - 56px); height: calc(55dvh - 56px); }
+    #map.full { height: calc(100vh - 56px); height: calc(100dvh - 56px); }
+
+    #side-panel {
+      top: auto; left: 0; width: 100%; height: 45vh; height: 45dvh;
+      border-left: none; border-top: 1px solid var(--border-strong);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.08);
+    }
+    #side-panel.hidden { transform: translateY(100%); }
+    .panel-header { padding: 14px 18px; }
+    #search-box { padding: 10px 14px; }
+    #restaurant-list { padding: 12px 14px; }
+
+    #toggle-panel { top: auto; right: 12px; bottom: calc(45vh + 12px); bottom: calc(45dvh + 12px); }
+    #toggle-panel.closed { right: 12px; bottom: 16px; }
+
+    #detail-popup, #detail-popup.full-map {
+      left: 12px; right: 12px; width: auto; bottom: 12px;
+      max-height: calc(100vh - 80px); max-height: calc(100dvh - 80px); overflow-y: auto;
+      padding: 18px;
+    }
+
+    .modal-overlay { align-items: flex-end; }
+    .modal, #auth-modal .modal {
+      width: 100% !important; max-width: 100%;
+      max-height: 92vh; max-height: 92dvh;
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      transform: translateY(24px);
+    }
+    .modal-overlay.visible .modal { transform: translateY(0); }
+    .modal-header { padding: 18px 20px 14px; }
+    .modal-body { padding: 20px; padding-bottom: calc(20px + env(safe-area-inset-bottom)); }
+    .form-row { grid-template-columns: 1fr; gap: 0; }
+    .form-input, .form-textarea, .form-select { font-size: 16px; } /* iOS 입력 시 확대 방지 */
+
+    #map-hint { display: none; }
+    #toast { white-space: normal; text-align: center; width: max-content; max-width: calc(100vw - 32px); bottom: 20px; }
+  }
 
   /* 📍 지도 마커 디자인 패치 */
   .pin-bubble {
@@ -648,15 +701,6 @@ function openMapLink() {
 
 // ── MAP (네이버) ───────────────────────────────────────
 async function initMap() {
-  const mapEl = document.getElementById('map');
-  if (mapEl) {
-    mapEl.style.position = 'fixed';
-    mapEl.style.top = '56px';
-    mapEl.style.left = '0';
-    mapEl.style.bottom = '0';
-    mapEl.style.right = panelVisible ? '340px' : '0';
-  }
-
   const officeGeo = await geocodeAddress(OFFICE.address);
   const lat = officeGeo?.lat || 37.507018;
   const lng = officeGeo?.lng || 127.033175;
@@ -948,31 +992,31 @@ async function confirmAuth() {
 }
 
 // ── PANEL TOGGLE ──────────────────────────────────────
+const isMobile = () => window.matchMedia('(max-width: 768px)').matches;
+function updateToggleIcon() {
+  const btn = document.getElementById('toggle-panel');
+  if (isMobile()) btn.textContent = panelVisible ? '▼' : '☰';
+  else btn.textContent = panelVisible ? '◀' : '▶';
+}
+
 function togglePanel() {
   panelVisible = !panelVisible;
   const btn = document.getElementById('toggle-panel');
   const popup = document.getElementById('detail-popup');
 
-  if (panelVisible) {
-    document.getElementById('side-panel').classList.remove('hidden');
-    document.getElementById('map').classList.remove('full');
-    btn.textContent = '◀';
-    btn.style.right = '350px';
-    btn.classList.remove('closed');
-    popup.classList.remove('full-map');
-  } else {
-    document.getElementById('side-panel').classList.add('hidden');
-    document.getElementById('map').classList.add('full');
-    btn.textContent = '▶';
-    btn.style.right = '10px';
-    btn.classList.add('closed');
-    popup.classList.add('full-map');
-  }
+  document.getElementById('side-panel').classList.toggle('hidden', !panelVisible);
+  document.getElementById('map').classList.toggle('full', !panelVisible);
+  btn.classList.toggle('closed', !panelVisible);
+  popup.classList.toggle('full-map', !panelVisible);
+  updateToggleIcon();
 
   if (map) {
     naver.maps.Event.trigger(map, 'resize');
+    setTimeout(() => naver.maps.Event.trigger(map, 'resize'), 320);
   }
 }
+window.addEventListener('resize', updateToggleIcon);
+window.addEventListener('DOMContentLoaded', updateToggleIcon);
 
 async function fetchAll() {
   if (!dbReady) return;
