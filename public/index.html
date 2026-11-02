@@ -6,7 +6,6 @@
 <title>🍽 한맛지(한국리서치맛집지도)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=Bebas+Neue&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <!-- 네이버 지도 SDK -->
 <script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=uixphb4538&submodules=geocoder"></script>
 <style>
@@ -377,8 +376,7 @@
 </div>
 
 <div id="config-banner">
-  ⚠️ <strong>Supabase 연결 필요:</strong> 파일 상단의 <code>SUPABASE_URL</code>과 <code>SUPABASE_ANON_KEY</code>를 입력해주세요.
-  &nbsp;<a href="https://supabase.com" target="_blank">supabase.com →</a>
+  ⚠️ <strong>데이터베이스 연결 필요:</strong> Cloudflare D1 데이터베이스가 연결되지 않았어요. README 의 설정 방법을 확인해주세요.
 </div>
 
 <header>
@@ -536,32 +534,30 @@
 <div id="map-hint">📍 핀을 클릭하면 상세정보가 표시됩니다</div>
 
 <script>
-// ══════════════════════════════════════════════════════
-//  ★ Supabase 정보
-// ══════════════════════════════════════════════════════
-const SUPABASE_URL      = 'https://cddcnnxhnyghueylasfv.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNkZGNubnhobnlnaHVleWxhc2Z2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkzMjQzMDAsImV4cCI6MjA5NDkwMDMwMH0.iTBzY1MxEWTZZKv4CDDy6mPWuGCDSLIA8ioyA_8Hyc0';
-// ══════════════════════════════════════════════════════
-
 // ── 회사 위치 (한국리서치) ─────────────────────────────
 const OFFICE = {
   name: '한국리서치',
   address: '서울특별시 강남구 봉은사로 179'
 };
 
-// ── SUPABASE ──────────────────────────────────────────
-let supabaseClient = null;
-let dbReady = false;
+// ── API (Cloudflare D1) ───────────────────────────────
+let dbReady = true;
+let lastPw = null; // 수정 시 서버에 다시 보내는 비밀번호 (확인 창에서 입력한 값)
 
-function initSupabase() {
-  if (!SUPABASE_URL || SUPABASE_URL === 'YOUR_SUPABASE_URL') {
-    document.getElementById('config-banner').classList.add('show');
-    return false;
+async function api(path, method = 'GET', body) {
+  const res = await fetch('/api' + path, {
+    method,
+    headers: body ? { 'content-type': 'application/json' } : undefined,
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  let data = null;
+  try { data = await res.json(); } catch {}
+  if (!res.ok) {
+    const err = new Error((data && data.error) || ('HTTP ' + res.status));
+    err.status = res.status;
+    throw err;
   }
-  const { createClient } = window.supabase;
-  supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  dbReady = true;
-  return true;
+  return data;
 }
 
 // ── DATA & UTILS ──────────────────────────────────────
@@ -574,29 +570,17 @@ let panelVisible = true;
 let map;
 let naverMarkers = {}; 
 
-function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
-function hashPw(pw) { return String(pw).replace(/[^0-9]/g, '').slice(0, 4); }
 function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 function fromRow(row) {
   return {
-    id: row.id, nick: row.nick, pwHash: row.pw_hash,
+    id: row.id, nick: row.nick,
     name: row.name, address: row.address, maplink: row.maplink,
     menu: row.menu, note: row.note, star: row.star,
     lat: row.lat, lng: row.lng, createdAt: row.created_at,
     category: row.category || '기타' 
   };
 }
-function toRow(r) {
-  return {
-    id: r.id, nick: r.nick, pw_hash: r.pwHash,
-    name: r.name, address: r.address, maplink: r.maplink,
-    menu: r.menu, note: r.note, star: r.star,
-    lat: r.lat || null, lng: r.lng || null, created_at: r.createdAt,
-    category: r.category 
-  };
-}
-
 // ── TOAST ────────────────────────────────────────────
 let toastTimer;
 function showToast(msg) {
@@ -816,7 +800,7 @@ function fillFormForEdit(r) {
 }
 
 async function submitRestaurant() {
-  if (!dbReady) { showToast('⚠️ Supabase 연결을 먼저 설정해주세요'); return; }
+  if (!dbReady) { showToast('⚠️ 데이터베이스 연결을 먼저 설정해주세요'); return; }
   const isEdit  = !!editingId;
   const nick    = isEdit ? restaurants.find(x=>x.id==editingId).nick : document.getElementById('input-nick').value.trim();
   const pw      = isEdit ? null : document.getElementById('input-pw').value.trim();
@@ -857,20 +841,27 @@ async function submitRestaurant() {
 
   if (isEdit) {
     const r = restaurants.find(x=>x.id==editingId);
-    Object.assign(r, { name, address, maplink, menu, note, star: currentStar, lat: geo.lat, lng: geo.lng, category });
-    const { error } = await supabaseClient.from('restaurants').update(toRow(r)).eq('id', r.id);
-    if (error) { showToast('❌ 수정 실패: ' + error.message); btn.disabled=false; btn.textContent='✓ 수정하기'; return; }
+    const changes = { name, address, maplink, menu, note, star: currentStar, lat: geo.lat, lng: geo.lng, category };
+    try {
+      await api('/restaurants/' + encodeURIComponent(r.id), 'PUT', { pw: lastPw, ...changes });
+    } catch (e) {
+      showToast('❌ 수정 실패: ' + e.message); btn.disabled=false; btn.textContent='✓ 수정하기'; return;
+    }
+    Object.assign(r, changes);
+    lastPw = null;
     removeMarker(r.id);
     addMarker(r); 
     showToast('✓ 수정 완료!');
   } else {
-    const newR = {
-      id: genId(), nick, pwHash: hashPw(pw),
-      name, address, maplink, menu, note, star: currentStar,
-      lat: geo.lat, lng: geo.lng, createdAt: Date.now(), category
-    };
-    const { error } = await supabaseClient.from('restaurants').insert(toRow(newR));
-    if (error) { showToast('❌ 등록 실패: ' + error.message); btn.disabled=false; btn.textContent='✓ 등록하기'; return; }
+    let newR;
+    try {
+      newR = fromRow(await api('/restaurants', 'POST', {
+        nick, pw, name, address, maplink, menu, note, star: currentStar,
+        lat: geo.lat, lng: geo.lng, category
+      }));
+    } catch (e) {
+      showToast('❌ 등록 실패: ' + e.message); btn.disabled=false; btn.textContent='✓ 등록하기'; return;
+    }
     restaurants.unshift(newR);
     addMarker(newR); 
     showToast('✓ 등록 완료!');
@@ -918,10 +909,13 @@ async function confirmAuth() {
     return; 
   }
   
-  if (String(hashPw(pw)) !== String(r.pwHash)) { 
-    showToast('❌ 비밀번호가 틀렸어요'); 
-    return; 
+  try {
+    await api('/restaurants/' + encodeURIComponent(r.id) + '/verify', 'POST', { pw });
+  } catch (e) {
+    showToast(e.status === 403 ? '❌ 비밀번호가 틀렸어요' : '❌ ' + e.message);
+    return;
   }
+  lastPw = pw;
   const action = authAction;
   closeAuthModal();
 
@@ -939,8 +933,8 @@ async function confirmAuth() {
 
   if (action === 'delete') {
     try {
-      const { error } = await supabaseClient.from('restaurants').delete().eq('id', currentPopupId);
-      if (error) throw error;
+      await api('/restaurants/' + encodeURIComponent(currentPopupId), 'DELETE', { pw });
+      lastPw = null;
       
       removeMarker(currentPopupId);
       restaurants = restaurants.filter(x => x.id != currentPopupId);
@@ -983,13 +977,12 @@ function togglePanel() {
 async function fetchAll() {
   if (!dbReady) return;
   try {
-    const { data, error } = await supabaseClient
-      .from('restaurants').select('*').order('created_at', { ascending: false });
-    if (error) throw error;
+    const data = await api('/restaurants');
     restaurants = (data || []).map(fromRow);
     rebuildMarkers();
     renderCards(restaurants);
   } catch(e) {
+    if (String(e.message).includes('D1')) document.getElementById('config-banner').classList.add('show');
     showToast('❌ 데이터 로드 오류: ' + (e.message || e));
     renderCards([]);
   }
@@ -1000,7 +993,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   try {
     // ⚠️ 오류 해결 포인트: 상단에 closePopup과 geocodeAddress가 먼저 완전히 마련된 후 호출됩니다.
     await initMap();
-    const ok = initSupabase();
+    const ok = dbReady;
     if (ok) {
       await fetchAll();
       if (restaurants.length === 0) {
